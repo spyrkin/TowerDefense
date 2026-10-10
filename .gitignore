@@ -1,0 +1,31 @@
+## ---------- .NET ----------
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userprefs
+.vs/
+*.nupkg
+*.snupkg
+
+## ---------- inwhite ----------
+.inwhite/
+*.snapshot.gz
+manifest.json.tmp
+
+## ---------- IDE / OS ----------
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+## ---------- Build / Test artifacts ----------
+TestResults/
+coverage/
+*.coverage
+*.coverage.xml
+artifacts/
