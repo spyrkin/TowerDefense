@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Td.Core/Td.Core.csproj" />
+    <Project Path="src/Td.Wpf/Td.Wpf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Td.Core.Tests/Td.Core.Tests.csproj" />
+  </Folder>
+</Solution>
