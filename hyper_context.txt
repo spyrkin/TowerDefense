@@ -1,0 +1,243 @@
+I have a project Game with following file structure
+
+docs
+src
+tests
+.gitignore
+TowerDefense.slnx
+build.ps1.txt
+docs\decisions
+docs\decisions\0001-game-loop.md.txt
+src\Td.Core
+src\Td.Wpf
+src\Td.Core\Class1.cs
+src\Td.Core\Td.Core.csproj
+src\Td.Wpf\App.xaml
+src\Td.Wpf\App.xaml.cs
+src\Td.Wpf\AssemblyInfo.cs
+src\Td.Wpf\MainWindow.xaml
+src\Td.Wpf\MainWindow.xaml.cs
+src\Td.Wpf\Td.Wpf.csproj
+tests\Td.Core.Tests
+tests\Td.Core.Tests\Td.Core.Tests.csproj
+tests\Td.Core.Tests\UnitTest1.cs
+
+
+~~~.gitignore
+## ---------- .NET ----------
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.user
+*.suo
+*.userprefs
+.vs/
+*.nupkg
+*.snupkg
+
+## ---------- inwhite ----------
+.inwhite/
+*.snapshot.gz
+manifest.json.tmp
+
+## ---------- IDE / OS ----------
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+## ---------- Build / Test artifacts ----------
+TestResults/
+coverage/
+*.coverage
+*.coverage.xml
+artifacts/
+~~~
+
+~~~TowerDefense.slnx
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Td.Core/Td.Core.csproj" />
+    <Project Path="src/Td.Wpf/Td.Wpf.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Td.Core.Tests/Td.Core.Tests.csproj" />
+  </Folder>
+</Solution>
+~~~
+
+~~~build.ps1.txt
+
+~~~
+
+~~~docs\decisions\0001-game-loop.md.txt
+Решение по игровому циклу:
+- Симуляция обновляется с фиксированным шагом 1/75 секунды.
+- Рендер привязывается к WPF CompositionTarget.Rendering.
+- Используется аккумулятор времени.
+- Максимальное число догоняющих шагов: 5.
+- Игровая логика не должна зависеть от частоты рендера.
+~~~
+
+~~~src\Td.Core\Class1.cs
+﻿namespace Td.Core;
+
+public class Class1
+{
+
+}
+~~~
+
+~~~src\Td.Core\Td.Core.csproj
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+~~~
+
+~~~src\Td.Wpf\App.xaml
+﻿<Application x:Class="Td.Wpf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Td.Wpf"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+         
+    </Application.Resources>
+</Application>
+~~~
+
+~~~src\Td.Wpf\App.xaml.cs
+﻿using System.Configuration;
+using System.Data;
+using System.Windows;
+
+namespace Td.Wpf;
+
+/// <summary>
+/// Interaction logic for App.xaml
+/// </summary>
+public partial class App : Application
+{
+}
+
+~~~
+
+~~~src\Td.Wpf\AssemblyInfo.cs
+using System.Windows;
+
+[assembly:ThemeInfo(
+    ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located
+                                                //(used if a resource is not found in the page,
+                                                // or application resource dictionaries)
+    ResourceDictionaryLocation.SourceAssembly   //where the generic resource dictionary is located
+                                                //(used if a resource is not found in the page,
+                                                // app, or any theme specific resource dictionaries)
+)]
+~~~
+
+~~~src\Td.Wpf\MainWindow.xaml
+﻿<Window x:Class="Td.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tower Defense"
+        Width="1280"
+        Height="720"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
+    <Grid x:Name="RootGrid" />
+</Window>
+~~~
+
+~~~src\Td.Wpf\MainWindow.xaml.cs
+﻿using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+
+namespace Td.Wpf;
+
+/// <summary>
+/// Interaction logic for MainWindow.xaml
+/// </summary>
+public partial class MainWindow : Window
+{
+    public MainWindow()
+    {
+        InitializeComponent();
+    }
+}
+~~~
+
+~~~src\Td.Wpf\Td.Wpf.csproj
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Td.Core\Td.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>
+~~~
+
+~~~tests\Td.Core.Tests\Td.Core.Tests.csproj
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Td.Core\Td.Core.csproj" />
+  </ItemGroup>
+
+</Project>
+~~~
+
+~~~tests\Td.Core.Tests\UnitTest1.cs
+﻿namespace Td.Core.Tests;
+
+public class UnitTest1
+{
+    [Fact]
+    public void Test1()
+    {
+
+    }
+}
+~~~
