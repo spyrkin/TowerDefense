@@ -8,4 +8,6 @@ public sealed record TowerType
     public required int BaseCost { get; init; }
 
     public required IReadOnlyList<TowerLevelDefinition> Levels { get; init; }
+	
+	public double FootprintRadius { get; init; } = 24.0;
 }

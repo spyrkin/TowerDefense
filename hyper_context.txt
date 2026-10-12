@@ -10,8 +10,44 @@ docs\decisions
 docs\decisions\0001-game-loop.md.txt
 src\Td.Core
 src\Td.Wpf
+src\Td.Core\Domain
+src\Td.Core\Services
+src\Td.Core\Simulation
 src\Td.Core\Class1.cs
 src\Td.Core\Td.Core.csproj
+src\Td.Core\Domain\Common
+src\Td.Core\Domain\Game
+src\Td.Core\Domain\Maps
+src\Td.Core\Domain\Monsters
+src\Td.Core\Domain\Towers
+src\Td.Core\Domain\Waves
+src\Td.Core\Domain\Common\GamePhase.cs
+src\Td.Core\Domain\Common\GameSpeed.cs
+src\Td.Core\Domain\Common\MechanicsLimits.cs
+src\Td.Core\Domain\Common\Point2D.cs
+src\Td.Core\Domain\Game\GameState.cs
+src\Td.Core\Domain\Maps\IMapCatalog.cs
+src\Td.Core\Domain\Maps\IPlacementValidator.cs
+src\Td.Core\Domain\Maps\MapDefinition.cs
+src\Td.Core\Domain\Monsters\MonsterClass.cs
+src\Td.Core\Domain\Monsters\MonsterState.cs
+src\Td.Core\Domain\Monsters\MonsterType.cs
+src\Td.Core\Domain\Monsters\SlowStatus.cs
+src\Td.Core\Domain\Towers\ISellRefundPolicy.cs
+src\Td.Core\Domain\Towers\TowerKind.cs
+src\Td.Core\Domain\Towers\TowerLevelDefinition.cs
+src\Td.Core\Domain\Towers\TowerState.cs
+src\Td.Core\Domain\Towers\TowerType.cs
+src\Td.Core\Domain\Waves\IRandomWaveGenerator.cs
+src\Td.Core\Domain\Waves\WaveDefinition.cs
+src\Td.Core\Domain\Waves\WaveEntry.cs
+src\Td.Core\Services\Audio
+src\Td.Core\Services\Settings
+src\Td.Core\Services\Audio\AudioEvent.cs
+src\Td.Core\Services\Audio\IAudioService.cs
+src\Td.Core\Services\Settings\GameSettings.cs
+src\Td.Core\Services\Settings\ISettingsService.cs
+src\Td.Core\Simulation\IDamageCalculator.cs
 src\Td.Wpf\App.xaml
 src\Td.Wpf\App.xaml.cs
 src\Td.Wpf\AssemblyInfo.cs
@@ -101,6 +137,302 @@ public class Class1
   </PropertyGroup>
 
 </Project>
+~~~
+
+~~~src\Td.Core\Domain\Common\GamePhase.cs
+public enum GamePhase
+{
+    MainMenu,
+    MapSelect,
+    Playing,
+    Paused,
+    Victory,
+    Defeat
+}
+~~~
+
+~~~src\Td.Core\Domain\Common\GameSpeed.cs
+public enum GameSpeed
+{
+    X1 = 1,
+    X2 = 2,
+    X4 = 4
+}
+~~~
+
+~~~src\Td.Core\Domain\Common\MechanicsLimits.cs
+public static class MechanicsLimits
+{
+    public const int MinWaveCount = 3;
+    public const int MaxWaveCount = 20;
+
+    public const int MinUpgradeLevel = 1;
+    public const int MaxUpgradeLevel = 3;
+
+    public const int BaseLives = 20;
+
+    public const double MaxSlowPercent = 0.70;
+}
+~~~
+
+~~~src\Td.Core\Domain\Common\Point2D.cs
+public readonly record struct Point2D(double X, double Y);
+~~~
+
+~~~src\Td.Core\Domain\Game\GameState.cs
+public sealed class GameState
+{
+    public required MapDefinition Map { get; init; }
+
+    public GamePhase Phase { get; set; } = GamePhase.MainMenu;
+
+    public GameSpeed Speed { get; set; } = GameSpeed.X1;
+
+    public int Gold { get; set; }
+
+    public int Lives { get; set; } = MechanicsLimits.BaseLives;
+
+    public int CurrentWave { get; set; }
+
+    public int TotalWaves { get; set; }
+
+    public IList<TowerState> Towers { get; } = new List<TowerState>();
+
+    public IList<MonsterState> Monsters { get; } = new List<MonsterState>();
+}
+~~~
+
+~~~src\Td.Core\Domain\Maps\IMapCatalog.cs
+public interface IMapCatalog
+{
+    IReadOnlyList<MapDefinition> GetMaps();
+    MapDefinition? GetMap(string id);
+}
+~~~
+
+~~~src\Td.Core\Domain\Maps\IPlacementValidator.cs
+public interface IPlacementValidator
+{
+    bool CanPlaceTower(
+        MapDefinition map,
+        Point2D position,
+        TowerType towerType,
+        IReadOnlyCollection<TowerState> existingTowers);
+}
+~~~
+
+~~~src\Td.Core\Domain\Maps\MapDefinition.cs
+public sealed record MapDefinition
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+
+    public required double Width { get; init; }
+    public required double Height { get; init; }
+
+    public required IReadOnlyList<Point2D> Path { get; init; }
+
+    public required double PathBufferRadius { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Monsters\MonsterClass.cs
+public enum MonsterClass
+{
+    Normal,
+    Fast,
+    Tank,
+    Flying
+}
+~~~
+
+~~~src\Td.Core\Domain\Monsters\MonsterState.cs
+public sealed class MonsterState
+{
+    public required Guid Id { get; init; }
+    public required MonsterType Type { get; init; }
+
+    public required double CurrentHp { get; set; }
+    public required Point2D Position { get; set; }
+
+    public double PathProgress { get; set; }
+
+    public SlowStatus? Slow { get; set; }
+
+    public bool IsAlive => CurrentHp > 0;
+}
+~~~
+
+~~~src\Td.Core\Domain\Monsters\MonsterType.cs
+public sealed record MonsterType
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+
+    public required MonsterClass Class { get; init; }
+
+    public required int MaxHp { get; init; }
+    public required double Speed { get; init; }
+
+    public required int Armor { get; init; }
+    public required int GoldReward { get; init; }
+
+    public required double SlowResistance { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Monsters\SlowStatus.cs
+public sealed record SlowStatus
+{
+    public required double Percent { get; init; }
+    public required double RemainingSeconds { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\ISellRefundPolicy.cs
+public interface ISellRefundPolicy
+{
+    int GetRefund(TowerState tower);
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\TowerKind.cs
+public enum TowerKind
+{
+    Normal,
+    Slow,
+    Area,
+    ArmorPiercing
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\TowerLevelDefinition.cs
+public sealed record TowerLevelDefinition
+{
+    public required int Level { get; init; }
+
+    public required int UpgradeCost { get; init; }
+
+    public required int Damage { get; init; }
+    public required double Range { get; init; }
+    public required double CooldownSeconds { get; init; }
+
+    public required double SlowPercent { get; init; }
+    public required double SlowDurationSeconds { get; init; }
+
+    public required double SplashRadius { get; init; }
+
+    public required double ArmorIgnorePercent { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\TowerState.cs
+public sealed class TowerState
+{
+    public required Guid Id { get; init; }
+    public required TowerType Type { get; init; }
+
+    public required Point2D Position { get; set; }
+
+    public int Level { get; set; } = MechanicsLimits.MinUpgradeLevel;
+
+    public int InvestedGold { get; set; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\TowerType.cs
+public sealed record TowerType
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+
+    public required TowerKind Kind { get; init; }
+
+    public required int BaseCost { get; init; }
+
+    public required IReadOnlyList<TowerLevelDefinition> Levels { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Waves\IRandomWaveGenerator.cs
+public interface IRandomWaveGenerator
+{
+    int RollTotalWaveCount(Random random);
+
+    WaveDefinition GenerateWave(
+        int waveNumber,
+        int totalWaves,
+        Random random);
+}
+~~~
+
+~~~src\Td.Core\Domain\Waves\WaveDefinition.cs
+public sealed record WaveDefinition
+{
+    public required int WaveNumber { get; init; }
+    public required int TotalWaves { get; init; }
+
+    public required IReadOnlyList<WaveEntry> Entries { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Domain\Waves\WaveEntry.cs
+public sealed record WaveEntry
+{
+    public required string MonsterTypeId { get; init; }
+    public required int Count { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Services\Audio\AudioEvent.cs
+public enum AudioEvent
+{
+    UiClick,
+    TowerPlaced,
+    TowerSold,
+    TowerShoot,
+    MonsterDied,
+    WaveStarted,
+    Victory,
+    Defeat
+}
+~~~
+
+~~~src\Td.Core\Services\Audio\IAudioService.cs
+public interface IAudioService
+{
+    void Play(AudioEvent audioEvent);
+}
+~~~
+
+~~~src\Td.Core\Services\Settings\GameSettings.cs
+public sealed record GameSettings
+{
+    public required bool SoundEnabled { get; init; }
+
+    public required double Volume { get; init; }
+
+    public required GameSpeed DefaultSpeed { get; init; }
+
+    public required bool ShowTowerRange { get; init; }
+}
+~~~
+
+~~~src\Td.Core\Services\Settings\ISettingsService.cs
+public interface ISettingsService
+{
+    GameSettings Load();
+    void Save(GameSettings settings);
+}
+~~~
+
+~~~src\Td.Core\Simulation\IDamageCalculator.cs
+public interface IDamageCalculator
+{
+    int CalculateDamage(
+        TowerLevelDefinition towerLevel,
+        MonsterType monsterType);
+}
 ~~~
 
 ~~~src\Td.Wpf\App.xaml
