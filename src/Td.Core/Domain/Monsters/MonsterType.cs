@@ -12,4 +12,6 @@ public sealed record MonsterType
     public required int GoldReward { get; init; }
 
     public required double SlowResistance { get; init; }
+	
+	public required int Tier { get; init; }
 }
