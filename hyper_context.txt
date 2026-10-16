@@ -5,16 +5,19 @@ src
 tests
 .gitignore
 TowerDefense.slnx
-build.ps1.txt
 docs\decisions
-docs\decisions\0001-game-loop.md.txt
+docs\dag.cmake
+docs\decisions\0001-game-loop.cmake
 src\Td.Core
 src\Td.Wpf
+src\Td.Core\Content
 src\Td.Core\Domain
 src\Td.Core\Services
 src\Td.Core\Simulation
-src\Td.Core\Class1.cs
 src\Td.Core\Td.Core.csproj
+src\Td.Core\Content\ContentCatalog.cs
+src\Td.Core\Content\EconomyContent.cs
+src\Td.Core\Content\WaveGenerationRules.cs
 src\Td.Core\Domain\Common
 src\Td.Core\Domain\Game
 src\Td.Core\Domain\Maps
@@ -27,13 +30,18 @@ src\Td.Core\Domain\Common\MechanicsLimits.cs
 src\Td.Core\Domain\Common\Point2D.cs
 src\Td.Core\Domain\Game\GameState.cs
 src\Td.Core\Domain\Maps\IMapCatalog.cs
+src\Td.Core\Domain\Maps\IPathGeometry.cs
 src\Td.Core\Domain\Maps\IPlacementValidator.cs
 src\Td.Core\Domain\Maps\MapDefinition.cs
+src\Td.Core\Domain\Maps\MapPlacementValidator.cs
+src\Td.Core\Domain\Maps\StaticMapCatalog.cs
 src\Td.Core\Domain\Monsters\MonsterClass.cs
+src\Td.Core\Domain\Monsters\MonsterContent.cs
 src\Td.Core\Domain\Monsters\MonsterState.cs
 src\Td.Core\Domain\Monsters\MonsterType.cs
 src\Td.Core\Domain\Monsters\SlowStatus.cs
 src\Td.Core\Domain\Towers\ISellRefundPolicy.cs
+src\Td.Core\Domain\Towers\TowerContent.cs
 src\Td.Core\Domain\Towers\TowerKind.cs
 src\Td.Core\Domain\Towers\TowerLevelDefinition.cs
 src\Td.Core\Domain\Towers\TowerState.cs
@@ -56,7 +64,6 @@ src\Td.Wpf\MainWindow.xaml.cs
 src\Td.Wpf\Td.Wpf.csproj
 tests\Td.Core.Tests
 tests\Td.Core.Tests\Td.Core.Tests.csproj
-tests\Td.Core.Tests\UnitTest1.cs
 
 
 ~~~.gitignore
@@ -105,26 +112,626 @@ artifacts/
 </Solution>
 ~~~
 
-~~~build.ps1.txt
+~~~docs\dag.cmake
+# Tower Defense — DAG выполнения проекта
 
+Дата последнего обновления: 2026-07-09  
+Проект: `TowerDefense`  
+Путь к решению: `C:\Users\Programmist\Desktop\Game`
+
+---
+
+## 1. Текущий статус
+
+Выполнено по шаг `N3` включительно.
+
+```text
+DONE: N0, N1, N2, N3
+NEXT: N4
+```
+
+Общий прогресс по узлам:
+
+```text
+4 / 19 узлов закрыто
+```
+
+Текущий активный шаг:
+
+```text
+N4 Content catalog
+```
+
+---
+
+## 2. Зафиксированная основа проекта
+
+Приняты допущения `A1-A21`.
+
+Ключевые решения:
+
+| Область | Решение |
+|---|---|
+| Платформа | Windows |
+| Стек | `.NET 10`, WPF |
+| Окно | фиксированное, `1280x720` |
+| Карты | 3 карты в первой версии |
+| Доступ к картам | все карты доступны сразу |
+| Путь монстров | фиксированный |
+| Размещение башен | свободное |
+| Блокировка пути башнями | запрещена |
+| Классы монстров | `Normal`, `Fast`, `Tank`, `Flying` |
+| Boss | не используется |
+| Волны | случайное количество от 3 до 20 |
+| Рост сложности | через бюджет волны и уровень монстров |
+| Скорость игры | `x1 / x2 / x4` |
+| Клавиша скорости | `F` |
+| Прокачка | линейная, 3 уровня |
+| Продажа башен | разрешена |
+| Жизни базы | 20 |
+| Поражение | при 0 жизней |
+| Настройки | звук, громкость, скорость по умолчанию, показ радиуса башни |
+| Сохранение прогресса | нет |
+| Сохранение настроек | локально |
+| Анимация | процедурные заглушки |
+| Звук | минимальные звуковые заглушки |
+| Редакторы | вынесены в этап C |
+| Автосборка | локальный скрипт; CI позже |
+
+---
+
+## 3. Легенда статусов
+
+| Статус | Значение |
+|---|---|
+| `DONE` | шаг выполнен и принят |
+| `ACTIVE` | шаг находится в работе |
+| `PENDING` | шаг еще не начат |
+| `BLOCKED` | шаг заблокирован |
+
+---
+
+## 4. Граф работ
+
+```mermaid
+graph TD
+  N0["N0 Requirements v2 freeze"] --> N1["N1 Architecture/.NET10 skeleton"]
+  N1 --> N2["N2 Domain contracts"]
+
+  N0 --> N3["N3 Multiple map model"]
+  N2 --> N3
+
+  N0 --> N4["N4 Content catalog"]
+  N2 --> N4
+
+  N2 --> N5["N5 Mechanics/status contracts"]
+
+  N2 --> N6["N6 Simulation engine"]
+  N3 --> N6
+  N4 --> N6
+  N5 --> N6
+
+  N4 --> N7["N7 Random wave generator"]
+  N5 --> N7
+  N6 --> N7
+
+  N1 --> N8["N8 Rendering/animation shell"]
+  N6 --> N8
+
+  N6 --> N9["N9 Input/controller"]
+  N8 --> N9
+
+  N3 --> N10["N10 UI/HUD/menus/map select"]
+  N6 --> N10
+  N7 --> N10
+  N8 --> N10
+  N9 --> N10
+
+  N1 --> N11["N11 Audio system"]
+  N10 --> N11
+
+  N1 --> N12["N12 Settings persistence"]
+  N10 --> N12
+
+  N3 --> N13["N13 Map editor MVP"]
+  N10 --> N13
+
+  N4 --> N14["N14 Wave editor MVP"]
+  N7 --> N14
+  N10 --> N14
+
+  N4 --> N15["N15 Balance tuning"]
+  N7 --> N15
+  N10 --> N15
+
+  N6 --> N16["N16 QA/perf/regression"]
+  N7 --> N16
+  N9 --> N16
+  N10 --> N16
+  N11 --> N16
+  N12 --> N16
+  N13 --> N16
+  N14 --> N16
+  N15 --> N16
+
+  N1 --> N17["N17 CI/build automation"]
+  N16 --> N17
+
+  N16 --> N18["N18 Acceptance/release candidate"]
+  N17 --> N18
+
+  classDef done fill:#d1f7d1,stroke:#1e7e34,color:#000;
+  classDef active fill:#fff3cd,stroke:#856404,color:#000;
+  classDef pending fill:#eef1f4,stroke:#6c757d,color:#000;
+
+  class N0,N1,N2,N3 done;
+  class N4 active;
+  class N5,N6,N7,N8,N9,N10,N11,N12,N13,N14,N15,N16,N17,N18 pending;
+```
+
+---
+
+## 5. Таблица узлов
+
+| ID | Шаг | Статус | Зависит от | Краткий результат |
+|---|---|---|---|---|
+| `N0` | Requirements v2 freeze | `DONE` | — | Требования заморожены, допущения `A1-A21` приняты |
+| `N1` | Architecture/.NET10 skeleton | `DONE` | `N0` | Решение создано, проекты `Td.Core`, `Td.Wpf`, `Td.Core.Tests`, окно `1280x720`, базовый game loop |
+| `N2` | Domain contracts | `DONE` | `N1` | Доменные контракты, интерфейсы, тесты инвариантов |
+| `N3` | Multiple map model | `DONE` | `N0`, `N2` | Модель карт, геометрия пути, валидация размещения башен, 3 тестовые карты |
+| `N4` | Content catalog | `ACTIVE` | `N0`, `N2` | 10 монстров, 4 башни, 3 уровня прокачки, экономика, правила волн |
+| `N5` | Mechanics/status contracts | `PENDING` | `N2` | Контракты урона, брони, замедления, полета, статусов |
+| `N6` | Simulation engine | `PENDING` | `N2`, `N3`, `N4`, `N5` | Движение, атака, урон, смерть, золото, жизни, победа/поражение |
+| `N7` | Random wave generator | `PENDING` | `N4`, `N5`, `N6` | Случайные волны 3–20 с ростом сложности |
+| `N8` | Rendering/animation shell | `PENDING` | `N1`, `N6` | WPF-отрисовка поля, монстров, башен, эффектов |
+| `N9` | Input/controller | `PENDING` | `N6`, `N8` | Мышь и клавиатура, установка башен, апгрейд, продажа, пауза, скорость |
+| `N10` | UI/HUD/menus/map select | `PENDING` | `N3`, `N6`, `N7`, `N8`, `N9` | HUD, меню, выбор карты, пауза, победа, поражение |
+| `N11` | Audio system | `PENDING` | `N1`, `N10` | Минимальные звуковые события |
+| `N12` | Settings persistence | `PENDING` | `N1`, `N10` | Локальное сохранение настроек |
+| `N13` | Map editor MVP | `PENDING` | `N3`, `N10` | Редактор карт, этап C |
+| `N14` | Wave editor MVP | `PENDING` | `N4`, `N7`, `N10` | Редактор/просмотр волн, этап C |
+| `N15` | Balance tuning | `PENDING` | `N4`, `N7`, `N10` | Тюнинг экономики, монстров, башен, волн |
+| `N16` | QA/perf/regression | `PENDING` | многие узлы | Тесты, производительность, регрессия |
+| `N17` | CI/build automation | `PENDING` | `N1`, `N16` | Автосборка и прогон тестов |
+| `N18` | Acceptance/release candidate | `PENDING` | `N16`, `N17` | Финальная приемка |
+
+---
+
+## 6. Детализация закрытых шагов
+
+### `N0` — Requirements v2 freeze
+
+Статус:
+
+```text
+DONE
+```
+
+Результат:
+
+- приняты допущения `A1-A21`;
+- зафиксированы требования к картам, монстрам, башням, волнам, управлению, настройкам;
+- редакторы вынесены в этап C;
+- согласован формат дальнейшей работы.
+
+---
+
+### `N1` — Architecture/.NET10 skeleton
+
+Статус:
+
+```text
+DONE
+```
+
+Результат:
+
+- создано решение;
+- есть проекты:
+  - `Td.Core`;
+  - `Td.Wpf`;
+  - `Td.Core.Tests`;
+- WPF-окно фиксированного размера `1280x720`;
+- сборка проходит;
+- тесты проходят;
+- зафиксировано решение по игровому циклу.
+
+---
+
+### `N2` — Domain contracts
+
+Статус:
+
+```text
+DONE
+```
+
+Результат:
+
+- добавлены доменные контракты;
+- описаны сущности:
+  - `Point2D`;
+  - `MapDefinition`;
+  - `MonsterType`;
+  - `MonsterState`;
+  - `TowerType`;
+  - `TowerLevelDefinition`;
+  - `TowerState`;
+  - `WaveDefinition`;
+  - `GameState`;
+  - `GameSettings`;
+- добавлены интерфейсы:
+  - `IMapCatalog`;
+  - `IPlacementValidator`;
+  - `IRandomWaveGenerator`;
+  - `IDamageCalculator`;
+  - `ISellRefundPolicy`;
+  - `ISettingsService`;
+  - `IAudioService`;
+- добавлены базовые ограничения:
+  - волны от 3 до 20;
+  - 3 уровня прокачки;
+  - 20 жизней;
+  - максимальное замедление 70%.
+
+---
+
+### `N3` — Multiple map model
+
+Статус:
+
+```text
+DONE
+```
+
+Результат:
+
+- реализована модель нескольких карт;
+- добавлена геометрия пути;
+- добавлена проверка размещения башен;
+- созданы 3 тестовые карты;
+- реализованы правила:
+  - башня внутри игрового поля;
+  - башня не размещается на пути;
+  - башня не пересекается с другими башнями;
+- добавлены тесты карт и валидации размещения.
+
+---
+
+## 7. Текущий активный шаг
+
+### `N4` — Content catalog
+
+Статус:
+
+```text
+ACTIVE
+```
+
+Цель:
+
+- создать каталог игрового контента;
+- добавить 10 типов монстров;
+- добавить 4 типа башен;
+- добавить 3 уровня прокачки для каждой башни;
+- добавить экономику;
+- добавить правила генерации волн;
+- добавить тесты целостности контента.
+
+Ожидаемые файлы:
+
+```text
+src/Td.Core/Content/ContentCatalog.cs
+src/Td.Core/Content/MonsterContent.cs
+src/Td.Core/Content/TowerContent.cs
+src/Td.Core/Content/EconomyContent.cs
+src/Td.Core/Content/WaveGenerationRules.cs
+```
+
+Ожидаемые тесты:
+
+```text
+tests/Td.Core.Tests/Content/MonsterContentTests.cs
+tests/Td.Core.Tests/Content/TowerContentTests.cs
+tests/Td.Core.Tests/Content/EconomyContentTests.cs
+tests/Td.Core.Tests/Content/WaveGenerationRulesTests.cs
+```
+
+Критерии завершения:
+
+```text
+- ровно 10 монстров;
+- ровно 4 башни;
+- ровно 3 уровня прокачки у каждой башни;
+- уникальные Id;
+- корректные диапазоны параметров;
+- dotnet build проходит;
+- dotnet test проходит;
+- числа являются плейсхолдерами до этапа балансировки.
+```
+
+Важная техническая заметка:
+
+```text
+Перед завершением N4 необходимо убедиться, что пространства имен в домене и контенте согласованы.
+Например:
+- Td.Core.Domain.Monsters
+- Td.Core.Domain.Towers
+- Td.Core.Content
+```
+
+---
+
+## 8. Следующие шаги после `N4`
+
+После успешного завершения `N4` планируется переход к:
+
+```text
+N5 Mechanics/status contracts
+```
+
+На `N5` будут уточнены и формализованы:
+
+- урон;
+- броня;
+- бронебойность;
+- замедление;
+- сопротивление замедлению;
+- полет;
+- площадной урон;
+- статусы.
+
+---
+
+## 9. Топологический порядок
+
+Базовый порядок выполнения:
+
+```text
+N0
+→ N1
+→ N2
+→ N3, N4
+→ N5
+→ N6
+→ N7
+→ N8
+→ N9
+→ N10
+→ N11, N12
+→ N13, N14
+→ N15
+→ N16
+→ N17
+→ N18
+```
+
+Фактический текущий порядок:
+
+```text
+N0 DONE
+N1 DONE
+N2 DONE
+N3 DONE
+N4 ACTIVE
+N5 PENDING
+N6 PENDING
+N7 PENDING
+N8 PENDING
+N9 PENDING
+N10 PENDING
+N11 PENDING
+N12 PENDING
+N13 PENDING
+N14 PENDING
+N15 PENDING
+N16 PENDING
+N17 PENDING
+N18 PENDING
+```
+
+---
+
+## 10. Список ребер графа
+
+```text
+N0 -> N1
+N1 -> N2
+N0 -> N3
+N2 -> N3
+N0 -> N4
+N2 -> N4
+N2 -> N5
+N2 -> N6
+N3 -> N6
+N4 -> N6
+N5 -> N6
+N4 -> N7
+N5 -> N7
+N6 -> N7
+N1 -> N8
+N6 -> N8
+N6 -> N9
+N8 -> N9
+N3 -> N10
+N6 -> N10
+N7 -> N10
+N8 -> N10
+N9 -> N10
+N1 -> N11
+N10 -> N11
+N1 -> N12
+N10 -> N12
+N3 -> N13
+N10 -> N13
+N4 -> N14
+N7 -> N14
+N10 -> N14
+N4 -> N15
+N7 -> N15
+N10 -> N15
+N6 -> N16
+N7 -> N16
+N9 -> N16
+N10 -> N16
+N11 -> N16
+N12 -> N16
+N13 -> N16
+N14 -> N16
+N15 -> N16
+N1 -> N17
+N16 -> N17
+N16 -> N18
+N17 -> N18
+```
+
+---
+
+## 11. Критический путь
+
+Ориентировочный критический путь:
+
+```text
+N0
+→ N1
+→ N2
+→ N3/N4
+→ N5
+→ N6
+→ N8
+→ N9
+→ N10
+→ N15
+→ N16
+→ N18
+```
+
+Волновой генератор `N7`, звук `N11`, настройки `N12` и редакторы `N13/N14` могут частично развиваться параллельно, но финальная приемка зависит от интеграции и тестирования.
+
+---
+
+## 12. Этапы проекта
+
+### Этап A — Core Playable
+
+Цель: играбельный каркас без редакторов.
+
+Сюда входят:
+
+```text
+N0
+N1
+N2
+N3
+N4
+N5
+N6
+N7
+N8
+N9
+N10
+```
+
+Текущее состояние:
+
+```text
+этап в работе
+выполнено: N0, N1, N2, N3
+активно: N4
+```
+
+---
+
+### Этап B — Full Game
+
+Цель: довести игру до принятых требований.
+
+Сюда входят:
+
+```text
+N11
+N12
+N15
+```
+
+---
+
+### Этап C — Editors and Hardening
+
+Цель: редакторы, стабилизация, автосборка, приемка.
+
+Сюда входят:
+
+```text
+N13
+N14
+N16
+N17
+N18
+```
+
+---
+
+## 13. Известные риски
+
+| Риск | Уровень | Комментарий |
+|---|---:|---|
+| Пространства имен в `Content` и `Domain` могут расходиться | средний | нужно держать единый стиль `Td.Core.Domain.*` и `Td.Core.Content` |
+| Плейсхолдерный баланс | средний | тюнинг будет на `N15` |
+| Генерация случайных волн может ломать рост сложности | высокий | нужно тестировать на `N7` |
+| WPF-производительность | средний | проверить при отрисовке монстров, башен и эффектов |
+| Редакторы могут сильно расширить скоуп | высокий | они вынесены в этап C |
+| `.NET 10` окружение | низкий/средний | уже подтверждено на `N1`, но нужно держать под контролем |
+
+---
+
+## 14. Рекомендуемый порядок работы прямо сейчас
+
+Сейчас нужно завершить:
+
+```text
+N4 Content catalog
+```
+
+После завершения:
+
+```bash
+dotnet build
+dotnet test
+```
+
+Ожидаемый рапорт:
+
+```text
+DONE N4: content catalog created, 10 monsters, 4 towers, 3 upgrade levels, tests ok
+```
+
+После этого детализируется:
+
+```text
+N5 Mechanics/status contracts
+```
 ~~~
 
-~~~docs\decisions\0001-game-loop.md.txt
-Решение по игровому циклу:
-- Симуляция обновляется с фиксированным шагом 1/75 секунды.
-- Рендер привязывается к WPF CompositionTarget.Rendering.
-- Используется аккумулятор времени.
-- Максимальное число догоняющих шагов: 5.
-- Игровая логика не должна зависеть от частоты рендера.
-~~~
+~~~docs\decisions\0001-game-loop.cmake
 
-~~~src\Td.Core\Class1.cs
-﻿namespace Td.Core;
+# ADR 0001: Game Loop и Фиксированный Шаг Симуляции
 
-public class Class1
-{
+## Статус
+Принято (Updated)
 
-}
+## Контекст
+Необходимо обеспечить детерминированность игровой физики и логики (движение монстров, расчет урона, коллизии) независимо от частоты рендера WPF и просадок FPS.
+
+## Решение
+- **Фиксированный шаг (Fixed Timestep):** Симуляция обновляется с жестко заданным шагом `fixedDeltaTime = 1/75` секунды.
+- **Рендер:** Привязывается к `WPF CompositionTarget.Rendering` (Variable Timestep). Рендер отрисовывает состояния, интерполируя их между шагами симуляции для плавности.
+- **Аккумулятор времени:** Используется аккумулятор (`accumulator += deltaTime`). Симуляция выполняет шаг, только если `accumulator >= fixedDeltaTime`, вычитая `fixedDeltaTime` из аккумулятора.
+- **Защита от Spiral of Death (Fallback: Clamp & Drop):**
+  - Максимальное число догоняющих шагов за один тик рендера: `5`.
+  - Если `accumulator` превышает `5 * fixedDeltaTime`, он жестко обрезается (clamp) до этого максимального значения. Излишек реального времени отбрасывается (drop).
+  - *Следствие:* При критических просадках FPS симуляция не успевает за реальным временем (эффект slow-motion), но сохраняется абсолютная стабильность физики и гарантируется отсутствие багов коллизий.
+- **Изоляция:** Игровая логика (Domain/Simulation) строго изолирована от частоты рендера и не содержит ссылок на UI-таймеры или WPF-компоненты.
 ~~~
 
 ~~~src\Td.Core\Td.Core.csproj
@@ -137,6 +744,45 @@ public class Class1
   </PropertyGroup>
 
 </Project>
+~~~
+
+~~~src\Td.Core\Content\ContentCatalog.cs
+using System.Collections.Generic;
+
+
+
+public static class ContentCatalog
+{
+    public static IReadOnlyList<MonsterType> Monsters => MonsterContent.All;
+
+    public static IReadOnlyList<TowerType> Towers => TowerContent.All;
+}
+~~~
+
+~~~src\Td.Core\Content\EconomyContent.cs
+public static class EconomyContent
+{
+    public const int StartingGold = 250;
+
+    public const int BaseLives = 20;
+
+    public const int SellRefundPercent = 70;
+
+    public const int WaveCompletionBonus = 0;
+}
+~~~
+
+~~~src\Td.Core\Content\WaveGenerationRules.cs
+public static class WaveGenerationRules
+{
+    public const int MinWaveCount = 3;
+    public const int MaxWaveCount = 20;
+
+    public const int MinMonsterTier = 1;
+    public const int MaxMonsterTier = 5;
+
+    public const int MaxAliveMonsters = 20;
+}
 ~~~
 
 ~~~src\Td.Core\Domain\Common\GamePhase.cs
@@ -176,29 +822,215 @@ public static class MechanicsLimits
 ~~~
 
 ~~~src\Td.Core\Domain\Common\Point2D.cs
-public readonly record struct Point2D(double X, double Y);
+using System;
+using System.Globalization;
+
+
+/// <summary>
+/// Точка в логических координатах игрового поля.
+/// Начало координат — левый верхний угол.
+/// X увеличивается вправо, Y увеличивается вниз.
+/// </summary>
+public readonly record struct Point2D(double X, double Y)
+{
+    /// <summary>
+    /// Точка (0, 0).
+    /// </summary>
+    public static Point2D Zero => new(0, 0);
+
+    /// <summary>
+    /// Расстояние до другой точки.
+    /// </summary>
+    public double DistanceTo(Point2D other)
+    {
+        double dx = X - other.X;
+        double dy = Y - other.Y;
+
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    /// <summary>
+    /// Квадрат расстояния до другой точки.
+    /// Используется там, где не нужен Math.Sqrt.
+    /// </summary>
+    public double DistanceSquaredTo(Point2D other)
+    {
+        double dx = X - other.X;
+        double dy = Y - other.Y;
+
+        return dx * dx + dy * dy;
+    }
+
+    /// <summary>
+    /// Возвращает новую точку, смещенную относительно текущей.
+    /// </summary>
+    public Point2D Offset(double dx, double dy)
+    {
+        return new Point2D(X + dx, Y + dy);
+    }
+
+    public static Point2D operator +(Point2D left, Point2D right)
+    {
+        return new Point2D(left.X + right.X, left.Y + right.Y);
+    }
+
+    public static Point2D operator -(Point2D left, Point2D right)
+    {
+        return new Point2D(left.X - right.X, left.Y - right.Y);
+    }
+
+    public static Point2D operator *(Point2D point, double scale)
+    {
+        return new Point2D(point.X * scale, point.Y * scale);
+    }
+
+    public static Point2D operator /(Point2D point, double scale)
+    {
+        return new Point2D(point.X / scale, point.Y / scale);
+    }
+
+    public override string ToString()
+    {
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "({0}, {1})",
+            X,
+            Y);
+    }
+}
 ~~~
 
 ~~~src\Td.Core\Domain\Game\GameState.cs
+
+
+/// <summary>
+/// Корень агрегата игрового состояния. 
+/// Инкапсулирует все мутации и гарантирует соблюдение бизнес-инвариантов.
+/// </summary>
 public sealed class GameState
 {
+    private readonly List<TowerState> _towers = new();
+    private readonly List<MonsterState> _monsters = new();
+
     public required MapDefinition Map { get; init; }
+    
+    // TotalWaves не должен меняться в процессе матча
+    public required int TotalWaves { get; init; } 
 
-    public GamePhase Phase { get; set; } = GamePhase.MainMenu;
-
+    public GamePhase Phase { get; private set; } = GamePhase.MainMenu;
     public GameSpeed Speed { get; set; } = GameSpeed.X1;
+    
+    public int Gold { get; private set; }
+    public int Lives { get; private set; } = MechanicsLimits.BaseLives;
+    
+    public int CurrentWave { get; private set; }
 
-    public int Gold { get; set; }
+    // Read-only view для предотвращения внешней мутации
+    public IReadOnlyList<TowerState> Towers => _towers;
+    public IReadOnlyList<MonsterState> Monsters => _monsters;
 
-    public int Lives { get; set; } = MechanicsLimits.BaseLives;
+    // --- Явные триггеры и мутаторы состояния ---
 
-    public int CurrentWave { get; set; }
+    public void StartGame()
+    {
+        if (Phase is not (GamePhase.MainMenu or GamePhase.MapSelect))
+            throw new InvalidOperationException($"Cannot start game from phase {Phase}.");
+        
+        Phase = GamePhase.Playing;
+    }
 
-    public int TotalWaves { get; set; }
+    public void PauseGame()
+    {
+        if (Phase != GamePhase.Playing) return;
+        Phase = GamePhase.Paused;
+    }
 
-    public IList<TowerState> Towers { get; } = new List<TowerState>();
+    public void ResumeGame()
+    {
+        if (Phase != GamePhase.Paused) return;
+        Phase = GamePhase.Playing;
+    }
 
-    public IList<MonsterState> Monsters { get; } = new List<MonsterState>();
+    public void StartNextWave()
+    {
+        if (Phase != GamePhase.Playing)
+            throw new InvalidOperationException("Cannot start wave outside of Playing phase.");
+        if (CurrentWave >= TotalWaves)
+            throw new InvalidOperationException("All waves have already been spawned.");
+            
+        CurrentWave++;
+        EvaluateVictoryCondition();
+    }
+
+    public void AddTower(TowerState tower)
+    {
+        if (Phase != GamePhase.Playing)
+            throw new InvalidOperationException("Cannot add towers outside of Playing phase.");
+        
+        _towers.Add(tower);
+    }
+
+    public void RemoveTower(TowerState tower)
+    {
+        _towers.Remove(tower);
+    }
+
+    public void AddMonster(MonsterState monster)
+    {
+        if (Phase != GamePhase.Playing)
+            throw new InvalidOperationException("Cannot spawn monsters outside of Playing phase.");
+        
+        _monsters.Add(monster);
+    }
+
+    public void RemoveMonster(MonsterState monster)
+    {
+        _monsters.Remove(monster);
+        EvaluateVictoryCondition();
+    }
+
+    public void ApplyBaseDamage(int damage)
+    {
+        if (damage <= 0) return;
+        if (Phase != GamePhase.Playing) return;
+
+        Lives -= damage;
+        if (Lives <= 0)
+        {
+            Lives = 0;
+            Phase = GamePhase.Defeat;
+        }
+    }
+
+    public void AddGold(int amount)
+    {
+        if (amount < 0) throw new ArgumentException("Gold amount cannot be negative.");
+        Gold += amount;
+    }
+
+    public void SpendGold(int amount)
+    {
+        if (amount < 0) throw new ArgumentException("Amount cannot be negative.");
+        if (Gold < amount) throw new InvalidOperationException("Insufficient gold.");
+        
+        Gold -= amount;
+    }
+
+    // --- Приватные методы оценки инвариантов ---
+
+    private void EvaluateVictoryCondition()
+    {
+        if (Phase != GamePhase.Playing) return;
+
+        bool allWavesSpawned = CurrentWave >= TotalWaves;
+        // Проверяем, что все монстры либо удалены, либо мертвы (защита от гонок с очисткой списка)
+        bool allMonstersDefeated = _monsters.Count == 0 || !_monsters.Any(m => m.IsAlive);
+
+        if (allWavesSpawned && allMonstersDefeated)
+        {
+            Phase = GamePhase.Victory;
+        }
+    }
 }
 ~~~
 
@@ -210,9 +1042,48 @@ public interface IMapCatalog
 }
 ~~~
 
+~~~src\Td.Core\Domain\Maps\IPathGeometry.cs
+public interface IPathGeometry
+{
+    double GetLength(IReadOnlyList<Point2D> path);
+
+    Point2D GetPointAtDistance(
+        IReadOnlyList<Point2D> path,
+        double distance);
+
+    double GetDistanceToPath(
+        IReadOnlyList<Point2D> path,
+        Point2D point);
+}
+~~~
+
 ~~~src\Td.Core\Domain\Maps\IPlacementValidator.cs
+
+
+/// <summary>
+/// Валидатор размещения башен на карте. 
+/// Инкапсулирует правила коллизий с путем, границами карты и другими башнями.
+/// </summary>
 public interface IPlacementValidator
 {
+    /// <summary>
+    /// Проверяет, можно ли разместить башню в указанной позиции.
+    /// </summary>
+    /// <param name="map">Определение карты (содержит путь, буферную зону и границы).</param>
+    /// <param name="position">Координаты центра предполагаемой башни.</param>
+    /// <param name="towerType">Тип башни (резерв для будущих специфических правил, например, для летающих башен).</param>
+    /// <param name="existingTowers">Коллекция уже размещенных на карте башен.</param>
+    /// <returns>
+    /// true, если размещение валидно.
+    /// <para>
+    /// Строгие правила валидации (Spec-first):
+    /// 1. Bounds Check: position.X in [0, map.Width], position.Y in [0, map.Height].
+    /// 2. Path Buffer Check: Евклидово расстояние от position до ближайшей точки на любом сегменте map.Path 
+    ///    должно быть строго >= map.PathBufferRadius.
+    /// 3. Tower Collision Check: Евклидово расстояние от position до центра любой башни из existingTowers 
+    ///    должно быть строго >= MechanicsLimits.MinTowerDistance.
+    /// </para>
+    /// </returns>
     bool CanPlaceTower(
         MapDefinition map,
         Point2D position,
@@ -236,7 +1107,160 @@ public sealed record MapDefinition
 }
 ~~~
 
+~~~src\Td.Core\Domain\Maps\MapPlacementValidator.cs
+using System;
+using System.Collections.Generic;
+
+
+
+
+public sealed class MapPlacementValidator : IPlacementValidator
+{
+    private readonly IPathGeometry _pathGeometry;
+
+    public MapPlacementValidator(IPathGeometry pathGeometry)
+    {
+        _pathGeometry = pathGeometry ?? throw new ArgumentNullException(nameof(pathGeometry));
+    }
+
+    public bool CanPlaceTower(
+        MapDefinition map,
+        Point2D position,
+        TowerType towerType,
+        IReadOnlyCollection<TowerState> existingTowers)
+    {
+        if (map is null)
+        {
+            return false;
+        }
+
+        if (towerType is null)
+        {
+            return false;
+        }
+
+        if (existingTowers is null)
+        {
+            return false;
+        }
+
+        if (map.Path is null || map.Path.Count < 2)
+        {
+            return false;
+        }
+
+        double towerRadius = towerType.FootprintRadius;
+
+        if (towerRadius <= 0)
+        {
+            return false;
+        }
+
+        if (!IsInsideMap(map, position, towerRadius))
+        {
+            return false;
+        }
+
+        if (!IsAwayFromPath(map, position, towerRadius))
+        {
+            return false;
+        }
+
+        if (!IsNotOverlappingExistingTowers(position, towerRadius, existingTowers))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsInsideMap(
+        MapDefinition map,
+        Point2D position,
+        double towerRadius)
+    {
+        return
+            position.X >= towerRadius &&
+            position.X <= map.Width - towerRadius &&
+            position.Y >= towerRadius &&
+            position.Y <= map.Height - towerRadius;
+    }
+
+    private bool IsAwayFromPath(
+        MapDefinition map,
+        Point2D position,
+        double towerRadius)
+    {
+        double distanceToPath = _pathGeometry.GetDistanceToPath(map.Path, position);
+
+        double requiredDistance = map.PathBufferRadius + towerRadius;
+
+        return distanceToPath >= requiredDistance;
+    }
+
+    private static bool IsNotOverlappingExistingTowers(
+        Point2D position,
+        double towerRadius,
+        IReadOnlyCollection<TowerState> existingTowers)
+    {
+        foreach (TowerState tower in existingTowers)
+        {
+            if (tower is null)
+            {
+                continue;
+            }
+
+            if (tower.Type is null)
+            {
+                continue;
+            }
+
+            double otherRadius = tower.Type.FootprintRadius;
+
+            double requiredDistance = towerRadius + otherRadius;
+
+            double distanceSquared = position.DistanceSquaredTo(tower.Position);
+
+            if (distanceSquared < requiredDistance * requiredDistance)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+~~~
+
+~~~src\Td.Core\Domain\Maps\StaticMapCatalog.cs
+public sealed class StaticMapCatalog : IMapCatalog
+{
+    private readonly IReadOnlyList<MapDefinition> _maps;
+
+    public StaticMapCatalog(IReadOnlyList<MapDefinition> maps)
+    {
+        _maps = maps;
+    }
+
+    public IReadOnlyList<MapDefinition> GetMaps() => _maps;
+
+    public MapDefinition? GetMap(string id)
+    {
+        foreach (var map in _maps)
+        {
+            if (map.Id == id)
+            {
+                return map;
+            }
+        }
+
+        return null;
+    }
+}
+~~~
+
 ~~~src\Td.Core\Domain\Monsters\MonsterClass.cs
+
 public enum MonsterClass
 {
     Normal,
@@ -246,20 +1270,108 @@ public enum MonsterClass
 }
 ~~~
 
+~~~src\Td.Core\Domain\Monsters\MonsterContent.cs
+using System.Collections.Generic;
+
+
+public static class MonsterContent
+{
+    public static IReadOnlyList<MonsterType> All { get; } = new List<MonsterType>
+    {
+        // Сюда нужно добавить 10 монстров.
+    };
+}
+~~~
+
 ~~~src\Td.Core\Domain\Monsters\MonsterState.cs
+
+
+/// <summary>
+/// Состояние монстра. Инкапсулирует инварианты здоровья, прогресса по пути и статусов.
+/// </summary>
 public sealed class MonsterState
 {
+    private double _pathProgress;
+    private double _currentHp;
+
     public required Guid Id { get; init; }
     public required MonsterType Type { get; init; }
+    
+    /// <summary>
+    /// Текущее здоровье. Жестко ограничено диапазоном [0, Type.MaxHp] для предотвращения оверхила.
+    /// </summary>
+    public double CurrentHp 
+    { 
+        get => _currentHp; 
+        set => _currentHp = Math.Clamp(value, 0.0, Type.MaxHp); 
+    }
 
-    public required double CurrentHp { get; set; }
     public required Point2D Position { get; set; }
 
-    public double PathProgress { get; set; }
+    /// <summary>
+    /// Нормализованный прогресс монстра по пути от 0.0 (спавн) до 1.0 (финиш/база).
+    /// </summary>
+    public double PathProgress 
+    { 
+        get => _pathProgress; 
+        set => _pathProgress = Math.Clamp(value, 0.0, 1.0); 
+    }
 
-    public SlowStatus? Slow { get; set; }
+    public SlowStatus? Slow { get; private set; }
 
     public bool IsAlive => CurrentHp > 0;
+
+    /// <summary>
+    /// Применяет эффект замедления. 
+    /// Учитывает сопротивление монстра и абсолютный лимит игры (MaxSlowPercent).
+    /// Правило стакинга: берется максимальный процент, таймер обновляется до максимального значения.
+    /// </summary>
+    public void ApplySlow(double basePercent, double durationSeconds)
+    {
+        if (basePercent <= 0 || durationSeconds <= 0) return;
+
+        // 1. Учет сопротивления (линейное снижение)
+        double effectivePercent = basePercent * (1.0 - Type.SlowResistance);
+        
+        // 2. Применение абсолютного лимита игры (потолок)
+        effectivePercent = Math.Min(effectivePercent, MechanicsLimits.MaxSlowPercent);
+
+        // 3. Стакинг (Refresh & Max)
+        if (Slow == null)
+        {
+            Slow = new SlowStatus 
+            { 
+                Percent = effectivePercent, 
+                RemainingSeconds = durationSeconds 
+            };
+        }
+        else
+        {
+            Slow = Slow with
+            {
+                Percent = Math.Max(Slow.Percent, effectivePercent),
+                RemainingSeconds = Math.Max(Slow.RemainingSeconds, durationSeconds)
+            };
+        }
+    }
+
+    /// <summary>
+    /// Обновляет таймер замедления на шаг симуляции. Сбрасывает эффект при истечении.
+    /// </summary>
+    public void TickSlow(double deltaSeconds)
+    {
+        if (Slow == null) return;
+
+        double newTime = Slow.RemainingSeconds - deltaSeconds;
+        if (newTime <= 0)
+        {
+            Slow = null;
+        }
+        else
+        {
+            Slow = Slow with { RemainingSeconds = newTime };
+        }
+    }
 }
 ~~~
 
@@ -278,6 +1390,8 @@ public sealed record MonsterType
     public required int GoldReward { get; init; }
 
     public required double SlowResistance { get; init; }
+	
+	public required int Tier { get; init; }
 }
 ~~~
 
@@ -293,6 +1407,19 @@ public sealed record SlowStatus
 public interface ISellRefundPolicy
 {
     int GetRefund(TowerState tower);
+}
+~~~
+
+~~~src\Td.Core\Domain\Towers\TowerContent.cs
+using System.Collections.Generic;
+
+
+public static class TowerContent
+{
+    public static IReadOnlyList<TowerType> All { get; } = new List<TowerType>
+    {
+        // Сюда нужно добавить 4 башни.
+    };
 }
 ~~~
 
@@ -327,16 +1454,90 @@ public sealed record TowerLevelDefinition
 ~~~
 
 ~~~src\Td.Core\Domain\Towers\TowerState.cs
+
+
+/// <summary>
+/// Состояние башни. Инкапсулирует инварианты уровня, экономики и доступа к конфигурации.
+/// </summary>
 public sealed class TowerState
 {
+    private int _level = MechanicsLimits.MinUpgradeLevel;
+
     public required Guid Id { get; init; }
     public required TowerType Type { get; init; }
+    
+    // Позиция башни фиксируется при установке. 
+    // Если в игре не предусмотрено перемещение башен, рекомендуется заменить set на init.
+    public required Point2D Position { get; set; } 
 
-    public required Point2D Position { get; set; }
+    /// <summary>
+    /// Текущий уровень башни. 
+    /// Жестко ограничен глобальными лимитами и фактическим количеством уровней в TowerType.
+    /// </summary>
+    public int Level
+    {
+        get => _level;
+        private set
+        {
+            int maxAllowedLevel = Math.Min(MechanicsLimits.MaxUpgradeLevel, Type.Levels.Count);
+            if (value < MechanicsLimits.MinUpgradeLevel || value > maxAllowedLevel)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value), 
+                    $"Level must be between {MechanicsLimits.MinUpgradeLevel} and {maxAllowedLevel}.");
+            }
+            _level = value;
+        }
+    }
 
-    public int Level { get; set; } = MechanicsLimits.MinUpgradeLevel;
+    /// <summary>
+    /// Суммарное золото, вложенное в башню (стоимость покупки + сумма апгрейдов).
+    /// Используется для расчета стоимости продажи.
+    /// </summary>
+    public int InvestedGold { get; private set; }
 
-    public int InvestedGold { get; set; }
+    /// <summary>
+    /// Быстрый доступ к конфигурации текущего уровня (урон, радиус, кулдаун и т.д.).
+    /// </summary>
+    public TowerLevelDefinition CurrentLevelDefinition => Type.Levels[Level - 1];
+
+    public bool CanUpgrade => Level < Math.Min(MechanicsLimits.MaxUpgradeLevel, Type.Levels.Count);
+
+    /// <summary>
+    /// Инициализирует базовую стоимость при покупке башни.
+    /// </summary>
+    public void InitializeInvestment(int baseCost)
+    {
+        if (InvestedGold != 0) 
+            throw new InvalidOperationException("Investment has already been initialized.");
+        if (baseCost < 0) 
+            throw new ArgumentException("Base cost cannot be negative.");
+            
+        InvestedGold = baseCost;
+    }
+
+    /// <summary>
+    /// Рассчитывает стоимость следующего апгрейда.
+    /// </summary>
+    public int GetUpgradeCost()
+    {
+        if (!CanUpgrade) return 0;
+        // Level - 1 это текущий уровень (индекс). Level это индекс следующего уровня.
+        return Type.Levels[Level].UpgradeCost; 
+    }
+
+    /// <summary>
+    /// Применяет апгрейд башни. 
+    /// Примечание: Проверка наличия золота у игрока должна выполняться в Domain Service до вызова этого метода.
+    /// </summary>
+    public void Upgrade()
+    {
+        if (!CanUpgrade)
+            throw new InvalidOperationException("Tower is already at maximum level.");
+
+        InvestedGold += GetUpgradeCost();
+        Level++;
+    }
 }
 ~~~
 
@@ -351,6 +1552,8 @@ public sealed record TowerType
     public required int BaseCost { get; init; }
 
     public required IReadOnlyList<TowerLevelDefinition> Levels { get; init; }
+	
+	public double FootprintRadius { get; init; } = 24.0;
 }
 ~~~
 
@@ -427,11 +1630,25 @@ public interface ISettingsService
 ~~~
 
 ~~~src\Td.Core\Simulation\IDamageCalculator.cs
+
+
+/// <summary>
+/// Калькулятор урона. Инкапсулирует математику взаимодействия брони и игнора брони.
+/// </summary>
 public interface IDamageCalculator
 {
-    int CalculateDamage(
-        TowerLevelDefinition towerLevel,
-        MonsterType monsterType);
+    /// <summary>
+    /// Рассчитывает итоговый урон по монстру с учетом его брони и процента игнора брони башни.
+    /// </summary>
+    /// <param name="towerLevel">Текущий уровень башни (содержит Damage и ArmorIgnorePercent).</param>
+    /// <param name="monsterType">Тип монстра (содержит Armor).</param>
+    /// <returns>
+    /// Итоговый урон (целое число, не менее 1).
+    /// Строгая формула расчета (Flat Reduction Model):
+    /// 1. EffectiveArmor = Floor(MonsterType.Armor * (1 - TowerLevelDefinition.ArmorIgnorePercent))
+    /// 2. FinalDamage = Max(1, TowerLevelDefinition.Damage - EffectiveArmor)
+    /// </returns>
+    int CalculateDamage(TowerLevelDefinition towerLevel, MonsterType monsterType);
 }
 ~~~
 
@@ -559,17 +1776,4 @@ public partial class MainWindow : Window
   </ItemGroup>
 
 </Project>
-~~~
-
-~~~tests\Td.Core.Tests\UnitTest1.cs
-﻿namespace Td.Core.Tests;
-
-public class UnitTest1
-{
-    [Fact]
-    public void Test1()
-    {
-
-    }
-}
 ~~~
