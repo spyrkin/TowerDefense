@@ -40,34 +40,37 @@ public sealed class MonsterState
     /// Учитывает сопротивление монстра и абсолютный лимит игры (MaxSlowPercent).
     /// Правило стакинга: берется максимальный процент, таймер обновляется до максимального значения.
     /// </summary>
-    public void ApplySlow(double basePercent, double durationSeconds)
-    {
-        if (basePercent <= 0 || durationSeconds <= 0) return;
+	public void ApplySlow(double basePercent, double durationSeconds)
+	{
+		if (basePercent <= 0 || durationSeconds <= 0) return;
 
-        // 1. Учет сопротивления (линейное снижение)
-        double effectivePercent = basePercent * (1.0 - Type.SlowResistance);
-        
-        // 2. Применение абсолютного лимита игры (потолок)
-        effectivePercent = Math.Min(effectivePercent, MechanicsLimits.MaxSlowPercent);
+		double clampedBasePercent = Math.Clamp(basePercent, 0.0, 1.0);
+		double clampedSlowResistance = Math.Clamp(Type.SlowResistance, 0.0, 1.0);
 
-        // 3. Стакинг (Refresh & Max)
-        if (Slow == null)
-        {
-            Slow = new SlowStatus 
-            { 
-                Percent = effectivePercent, 
-                RemainingSeconds = durationSeconds 
-            };
-        }
-        else
-        {
-            Slow = Slow with
-            {
-                Percent = Math.Max(Slow.Percent, effectivePercent),
-                RemainingSeconds = Math.Max(Slow.RemainingSeconds, durationSeconds)
-            };
-        }
-    }
+		// 1. Учет сопротивления (линейное снижение)
+		double effectivePercent = clampedBasePercent * (1.0 - clampedSlowResistance);
+
+		// 2. Применение абсолютного лимита игры (потолок)
+		effectivePercent = Math.Min(effectivePercent, MechanicsLimits.MaxSlowPercent);
+
+		// 3. Стакинг (Refresh & Max)
+		if (Slow == null)
+		{
+			Slow = new SlowStatus
+			{
+				Percent = effectivePercent,
+				RemainingSeconds = durationSeconds
+			};
+		}
+		else
+		{
+			Slow = Slow with
+			{
+				Percent = Math.Max(Slow.Percent, effectivePercent),
+				RemainingSeconds = Math.Max(Slow.RemainingSeconds, durationSeconds)
+			};
+		}
+	}
 
     /// <summary>
     /// Обновляет таймер замедления на шаг симуляции. Сбрасывает эффект при истечении.
