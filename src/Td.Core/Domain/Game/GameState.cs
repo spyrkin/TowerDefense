@@ -28,13 +28,19 @@ public sealed class GameState
 
     // --- Явные триггеры и мутаторы состояния ---
 
-    public void StartGame()
-    {
-        if (Phase is not (GamePhase.MainMenu or GamePhase.MapSelect))
-            throw new InvalidOperationException($"Cannot start game from phase {Phase}.");
-        
-        Phase = GamePhase.Playing;
-    }
+	public void StartGame()
+	{
+		if (Phase is not (GamePhase.MainMenu or GamePhase.MapSelect))
+			throw new InvalidOperationException($"Cannot start game from phase {Phase}.");
+
+		_towers.Clear();
+		_monsters.Clear();
+
+		Gold = EconomyContent.StartingGold;
+		Lives = MechanicsLimits.BaseLives;
+		CurrentWave = 0;
+		Phase = GamePhase.Playing;
+	}
 
     public void PauseGame()
     {

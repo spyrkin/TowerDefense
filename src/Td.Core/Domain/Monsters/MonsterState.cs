@@ -71,6 +71,16 @@ public sealed class MonsterState
 			};
 		}
 	}
+	
+	/// <summary>
+	/// Применяет урон к монстру. Здоровье автоматически ограничивается диапазоном [0, MaxHp].
+	/// </summary>
+	public void ApplyDamage(int damage)
+	{
+		if (damage <= 0) return;
+
+		CurrentHp -= damage;
+	}
 
     /// <summary>
     /// Обновляет таймер замедления на шаг симуляции. Сбрасывает эффект при истечении.

@@ -12,7 +12,36 @@ public sealed class TowerState
     
     // Позиция башни фиксируется при установке. 
     // Если в игре не предусмотрено перемещение башен, рекомендуется заменить set на init.
-    public required Point2D Position { get; set; } 
+    public required Point2D Position { get; set; }
+
+	/// <summary>
+	/// Оставшееся время до следующего выстрела.
+	/// </summary>
+	public double CooldownRemainingSeconds { get; private set; }
+
+	/// <summary>
+	/// Уменьшает кулдаун на шаг симуляции.
+	/// </summary>
+	public void TickCooldown(double deltaSeconds)
+	{
+		if (deltaSeconds <= 0) return;
+		if (CooldownRemainingSeconds <= 0) return;
+
+		CooldownRemainingSeconds = Math.Max(0.0, CooldownRemainingSeconds - deltaSeconds);
+	}
+
+	/// <summary>
+	/// Устанавливает кулдаун после выстрела.
+	/// </summary>
+	public void SetCooldown(double cooldownSeconds)
+	{
+		if (cooldownSeconds < 0)
+		{
+			throw new ArgumentException("Cooldown cannot be negative.");
+		}
+
+		CooldownRemainingSeconds = cooldownSeconds;
+	}
 
     /// <summary>
     /// Текущий уровень башни. 
