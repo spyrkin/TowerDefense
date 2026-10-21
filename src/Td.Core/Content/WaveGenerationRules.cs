@@ -7,6 +7,18 @@ public static class WaveGenerationRules
     public const int MaxAliveMonsters = 20;
 
     /// <summary>
+    /// Базовый бюджет первой волны.
+    /// Плейсхолдер до балансировки на этапе N15.
+    /// </summary>
+    public const int BaseWaveBudget = 8;
+
+    /// <summary>
+    /// Прирост бюджета волны за каждый следующий номер волны.
+    /// Плейсхолдер до балансировки на этапе N15.
+    /// </summary>
+    public const int WaveBudgetGrowth = 4;
+
+    /// <summary>
     /// Интервал спавна монстров внутри волны.
     /// Плейсхолдер до балансировки.
     /// </summary>
