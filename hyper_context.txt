@@ -8,6 +8,9 @@ TowerDefense.slnx
 docs\decisions
 docs\dag.cmake
 docs\decisions\0001-game-loop.cmake
+docs\decisions\0002-mechanics-status-contracts.cmake
+docs\decisions\0003-simulation-engine-assumptions.cmake
+docs\decisions\0004-random-wave-generation.cmake
 src\Td.Core
 src\Td.Wpf
 src\Td.Core\Content
@@ -34,6 +37,7 @@ src\Td.Core\Domain\Maps\IPathGeometry.cs
 src\Td.Core\Domain\Maps\IPlacementValidator.cs
 src\Td.Core\Domain\Maps\MapDefinition.cs
 src\Td.Core\Domain\Maps\MapPlacementValidator.cs
+src\Td.Core\Domain\Maps\PathGeometry.cs
 src\Td.Core\Domain\Maps\StaticMapCatalog.cs
 src\Td.Core\Domain\Monsters\MonsterClass.cs
 src\Td.Core\Domain\Monsters\MonsterContent.cs
@@ -47,6 +51,7 @@ src\Td.Core\Domain\Towers\TowerLevelDefinition.cs
 src\Td.Core\Domain\Towers\TowerState.cs
 src\Td.Core\Domain\Towers\TowerType.cs
 src\Td.Core\Domain\Waves\IRandomWaveGenerator.cs
+src\Td.Core\Domain\Waves\RandomWaveGenerator.cs
 src\Td.Core\Domain\Waves\WaveDefinition.cs
 src\Td.Core\Domain\Waves\WaveEntry.cs
 src\Td.Core\Services\Audio
@@ -55,7 +60,10 @@ src\Td.Core\Services\Audio\AudioEvent.cs
 src\Td.Core\Services\Audio\IAudioService.cs
 src\Td.Core\Services\Settings\GameSettings.cs
 src\Td.Core\Services\Settings\ISettingsService.cs
+src\Td.Core\Simulation\DamageCalculator.cs
+src\Td.Core\Simulation\GameSimulationEngine.cs
 src\Td.Core\Simulation\IDamageCalculator.cs
+src\Td.Core\Simulation\ISimulationEngine.cs
 src\Td.Wpf\App.xaml
 src\Td.Wpf\App.xaml.cs
 src\Td.Wpf\AssemblyInfo.cs
@@ -63,7 +71,19 @@ src\Td.Wpf\MainWindow.xaml
 src\Td.Wpf\MainWindow.xaml.cs
 src\Td.Wpf\Td.Wpf.csproj
 tests\Td.Core.Tests
+tests\Td.Core.Tests\Domain
+tests\Td.Core.Tests\Simulation
 tests\Td.Core.Tests\Td.Core.Tests.csproj
+tests\Td.Core.Tests\Domain\Maps
+tests\Td.Core.Tests\Domain\Monsters
+tests\Td.Core.Tests\Domain\Towers
+tests\Td.Core.Tests\Domain\Waves
+tests\Td.Core.Tests\Domain\Maps\PathGeometryTests.cs
+tests\Td.Core.Tests\Domain\Monsters\MonsterStateSlowTests.cs
+tests\Td.Core.Tests\Domain\Monsters\MonsterTypeTests.cs
+tests\Td.Core.Tests\Domain\Towers\TowerTypeTargetingTests.cs
+tests\Td.Core.Tests\Domain\Waves\RandomWaveGeneratorTests.cs
+tests\Td.Core.Tests\Simulation\DamageCalculatorTests.cs
 
 
 ~~~.gitignore
@@ -734,6 +754,300 @@ N5 Mechanics/status contracts
 - **Изоляция:** Игровая логика (Domain/Simulation) строго изолирована от частоты рендера и не содержит ссылок на UI-таймеры или WPF-компоненты.
 ~~~
 
+~~~docs\decisions\0002-mechanics-status-contracts.cmake
+# ADR 0002: Mechanics/status contracts
+
+## Статус
+
+Принято
+
+## Контекст
+
+Для перехода к `N6 Simulation engine` необходимо однозначно зафиксировать правила:
+
+- урона;
+- брони;
+- игнора брони;
+- бронебойности;
+- замедления;
+- сопротивления замедлению;
+- летающих целей;
+- площадного урона;
+- статусов;
+- времени действия эффектов.
+
+## Решение
+
+### 1. Модель урона
+
+Принята `Flat Reduction Model`.
+
+Формула:
+
+```text
+EffectiveArmor = Floor(MonsterType.Armor * (1 - TowerLevelDefinition.ArmorIgnorePercent))
+FinalDamage = Max(1, TowerLevelDefinition.Damage - EffectiveArmor)
+```
+
+Итоговый урон всегда не меньше `1`.
+
+### 2. ArmorIgnorePercent
+
+`ArmorIgnorePercent` трактуется как доля и ограничивается диапазоном:
+
+```text
+[0.0, 1.0]
+```
+
+Правила:
+
+```text
+ArmorIgnorePercent < 0.0 -> 0.0
+ArmorIgnorePercent > 1.0 -> 1.0
+```
+
+При `ArmorIgnorePercent = 1.0` броня игнорируется полностью, но минимальный урон все равно равен `1`.
+
+### 3. ArmorPiercing
+
+`TowerKind.ArmorPiercing` является семантическим типом башни.
+
+Механика бронебойности реализуется только через:
+
+```text
+TowerLevelDefinition.ArmorIgnorePercent
+```
+
+Отдельная формула для `TowerKind.ArmorPiercing` не вводится.
+
+### 4. Splash / площадной урон
+
+Если:
+
+```text
+TowerLevelDefinition.SplashRadius > 0
+```
+
+то урон получают все монстры в радиусе `SplashRadius` от точки попадания.
+
+Правила:
+
+```text
+- урон рассчитывается индивидуально для каждого монстра;
+- броня и ArmorIgnorePercent применяются к каждому монстру отдельно;
+- затухание урона по расстоянию отсутствует;
+- splash-урон не наносит урон башням и базе;
+- SplashRadius <= 0 означает отсутствие площадного урона.
+```
+
+Конкретная механика выбора целей и обработки попадания реализуется в `N6 Simulation engine`.
+
+### 5. Летающие цели
+
+`MonsterClass.Flying` означает воздушную цель.
+
+Вводится флаг:
+
+```csharp
+public bool CanTargetFlying { get; init; } = true;
+```
+
+в `TowerType`.
+
+Правило:
+
+```text
+Если MonsterType.Class == Flying,
+башня может атаковать этого монстра только если TowerType.CanTargetFlying == true.
+```
+
+Значение по умолчанию:
+
+```text
+true
+```
+
+Это сохраняет обратную совместимость и позволяет позже точечно отключать атаку воздушных целей у отдельных башен.
+
+### 6. Замедление
+
+Замедление применяется, если:
+
+```text
+TowerLevelDefinition.SlowPercent > 0
+```
+
+Независимо от `TowerKind`.
+
+Значения:
+
+```text
+SlowPercent
+SlowResistance
+```
+
+трактуются как доли в диапазоне:
+
+```text
+[0.0, 1.0]
+```
+
+Например:
+
+```text
+0.25 = 25%
+0.70 = 70%
+```
+
+Формула применения:
+
+```text
+effectivePercent = basePercent * (1 - SlowResistance)
+effectivePercent = min(effectivePercent, MechanicsLimits.MaxSlowPercent)
+```
+
+Правило стакинга:
+
+```text
+Percent = max(existing.Percent, incomingEffectivePercent)
+RemainingSeconds = max(existing.RemainingSeconds, incomingDurationSeconds)
+```
+
+### 7. Статусы
+
+В первой версии поддерживается только один статус:
+
+```text
+SlowStatus
+```
+
+DoT, stun, knockback, shield, regen, burn, bleed и другие эффекты в `N5` не добавляются.
+
+Универсальная статусная система пока не вводится.
+
+### 8. Время эффектов
+
+Все длительности эффектов измеряются в симуляционных секундах.
+
+`GameSpeed` влияет на скорость накопления симуляционного времени в игровом цикле, но не меняет контракт статусов.
+
+`SlowStatus.RemainingSeconds` уменьшается на `deltaSeconds`, переданный симуляцией.
+
+## Последствия
+
+- `N6 Simulation engine` получает однозначные правила урона, брони, замедления и летающих целей.
+- Контент может управлять бронебойностью через `ArmorIgnorePercent`.
+- Летающие цели можно будет балансировать через `TowerType.CanTargetFlying`.
+- Статусная система остается минимальной и не расширяется до появления отдельных требований.
+~~~
+
+~~~docs\decisions\0003-simulation-engine-assumptions.cmake
+# ADR 0003: Simulation engine assumptions
+
+## Статус
+
+Принято
+
+## Контекст
+
+Для реализации `N6 Simulation engine` недостаточно одних контрактов домена.
+Нужно зафиксировать практические правила движения, спавна, атаки и утечки монстров.
+
+## Решение
+
+### 1. Модель атаки
+
+Атака башни считается мгновенной:
+
+```text
+hitscan
+```
+
+Снаряды, время полета и промахи в первой версии не реализуются.
+
+### 2. Выбор цели
+
+Башня выбирает живого монстра:
+
+```text
+- находящегося в радиусе башни;
+- которого башня может атаковать по правилам Flying;
+- с максимальным PathProgress среди подходящих целей.
+```
+
+### 3. Спавн монстров
+
+Монстры из волны спавнятся последовательно.
+
+Интервал спавна:
+
+```text
+SpawnIntervalSeconds = 0.75
+```
+
+Значение является плейсхолдером и может быть отбалансировано на `N15`.
+
+### 4. Утечка монстра
+
+Когда монстр достигает конца пути:
+
+```text
+база получает MonsterLeakDamage = 1
+монстр удаляется из симуляции
+```
+
+Значение является плейсхолдером.
+
+### 5. Splash и Flying
+
+Splash-урон поражает только тех монстров, которые являются допустимыми целями для башни.
+
+Если:
+
+```text
+MonsterType.IsFlying == true
+TowerType.CanTargetFlying == false
+```
+
+то такой монстр не получает урон от башни, включая splash.
+
+### 6. GameSpeed
+
+`GameSpeed` не изменяет контракты симуляции.
+
+Внешний игровой цикл масштабирует время:
+
+```text
+accumulator += realDeltaTime * speedMultiplier
+while accumulator >= fixedDeltaTime:
+    simulation.Update(fixedDeltaTime)
+    accumulator -= fixedDeltaTime
+~~~
+
+~~~docs\decisions\0004-random-wave-generation.cmake
+# ADR 0004: Random wave generation assumptions
+
+## Статус
+Принято / Предложено к подтверждению
+
+## Контекст
+Для реализации `N7 Random wave generator` недостаточно одного интерфейса `IRandomWaveGenerator`.
+Необходимо зафиксировать правила:
+- выбора общего количества волн;
+- бюджета волны;
+- максимально допустимого уровня монстров;
+- лимита монстров в волне;
+- детерминированности при использовании `System.Random`.
+
+## Решение
+
+### 1. Количество волн
+Общее количество волн выбирается случайно:
+
+```text
+[WaveGenerationRules.MinWaveCount, WaveGenerationRules.MaxWaveCount]
+~~~
+
 ~~~src\Td.Core\Td.Core.csproj
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
@@ -763,12 +1077,15 @@ public static class ContentCatalog
 public static class EconomyContent
 {
     public const int StartingGold = 250;
-
     public const int BaseLives = 20;
-
     public const int SellRefundPercent = 70;
-
     public const int WaveCompletionBonus = 0;
+
+    /// <summary>
+    /// Урон базе при достижении монстром конца пути.
+    /// Плейсхолдер до балансировки.
+    /// </summary>
+    public const int MonsterLeakDamage = 1;
 }
 ~~~
 
@@ -777,11 +1094,27 @@ public static class WaveGenerationRules
 {
     public const int MinWaveCount = 3;
     public const int MaxWaveCount = 20;
-
     public const int MinMonsterTier = 1;
     public const int MaxMonsterTier = 5;
-
     public const int MaxAliveMonsters = 20;
+
+    /// <summary>
+    /// Базовый бюджет первой волны.
+    /// Плейсхолдер до балансировки на этапе N15.
+    /// </summary>
+    public const int BaseWaveBudget = 8;
+
+    /// <summary>
+    /// Прирост бюджета волны за каждый следующий номер волны.
+    /// Плейсхолдер до балансировки на этапе N15.
+    /// </summary>
+    public const int WaveBudgetGrowth = 4;
+
+    /// <summary>
+    /// Интервал спавна монстров внутри волны.
+    /// Плейсхолдер до балансировки.
+    /// </summary>
+    public const double SpawnIntervalSeconds = 0.75;
 }
 ~~~
 
@@ -931,13 +1264,19 @@ public sealed class GameState
 
     // --- Явные триггеры и мутаторы состояния ---
 
-    public void StartGame()
-    {
-        if (Phase is not (GamePhase.MainMenu or GamePhase.MapSelect))
-            throw new InvalidOperationException($"Cannot start game from phase {Phase}.");
-        
-        Phase = GamePhase.Playing;
-    }
+	public void StartGame()
+	{
+		if (Phase is not (GamePhase.MainMenu or GamePhase.MapSelect))
+			throw new InvalidOperationException($"Cannot start game from phase {Phase}.");
+
+		_towers.Clear();
+		_monsters.Clear();
+
+		Gold = EconomyContent.StartingGold;
+		Lives = MechanicsLimits.BaseLives;
+		CurrentWave = 0;
+		Phase = GamePhase.Playing;
+	}
 
     public void PauseGame()
     {
@@ -1232,6 +1571,136 @@ public sealed class MapPlacementValidator : IPlacementValidator
 }
 ~~~
 
+~~~src\Td.Core\Domain\Maps\PathGeometry.cs
+using System;
+using System.Collections.Generic;
+
+/// <summary>
+/// Базовая реализация геометрии пути на основе ломаной линии.
+/// </summary>
+public sealed class PathGeometry : IPathGeometry
+{
+    public double GetLength(IReadOnlyList<Point2D> path)
+    {
+        if (path is null || path.Count < 2)
+        {
+            return 0.0;
+        }
+
+        double length = 0.0;
+
+        for (int i = 1; i < path.Count; i++)
+        {
+            length += path[i - 1].DistanceTo(path[i]);
+        }
+
+        return length;
+    }
+
+    public Point2D GetPointAtDistance(
+        IReadOnlyList<Point2D> path,
+        double distance)
+    {
+        if (path is null || path.Count == 0)
+        {
+            return Point2D.Zero;
+        }
+
+        if (path.Count == 1)
+        {
+            return path[0];
+        }
+
+        if (distance <= 0.0)
+        {
+            return path[0];
+        }
+
+        double remaining = distance;
+
+        for (int i = 1; i < path.Count; i++)
+        {
+            Point2D segmentStart = path[i - 1];
+            Point2D segmentEnd = path[i];
+            double segmentLength = segmentStart.DistanceTo(segmentEnd);
+
+            if (remaining <= segmentLength)
+            {
+                if (segmentLength == 0.0)
+                {
+                    return segmentStart;
+                }
+
+                double t = remaining / segmentLength;
+                return new Point2D(
+                    segmentStart.X + (segmentEnd.X - segmentStart.X) * t,
+                    segmentStart.Y + (segmentEnd.Y - segmentStart.Y) * t);
+            }
+
+            remaining -= segmentLength;
+        }
+
+        return path[^1];
+    }
+
+    public double GetDistanceToPath(
+        IReadOnlyList<Point2D> path,
+        Point2D point)
+    {
+        if (path is null || path.Count == 0)
+        {
+            return double.MaxValue;
+        }
+
+        if (path.Count == 1)
+        {
+            return point.DistanceTo(path[0]);
+        }
+
+        double minDistance = double.MaxValue;
+
+        for (int i = 1; i < path.Count; i++)
+        {
+            double distance = DistancePointToSegment(point, path[i - 1], path[i]);
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+            }
+        }
+
+        return minDistance;
+    }
+
+    private static double DistancePointToSegment(
+        Point2D point,
+        Point2D segmentStart,
+        Point2D segmentEnd)
+    {
+        double vx = segmentEnd.X - segmentStart.X;
+        double vy = segmentEnd.Y - segmentStart.Y;
+
+        double wx = point.X - segmentStart.X;
+        double wy = point.Y - segmentStart.Y;
+
+        double lengthSquared = vx * vx + vy * vy;
+
+        if (lengthSquared == 0.0)
+        {
+            return point.DistanceTo(segmentStart);
+        }
+
+        double projection = (wx * vx + wy * vy) / lengthSquared;
+        projection = Math.Clamp(projection, 0.0, 1.0);
+
+        Point2D closest = new Point2D(
+            segmentStart.X + vx * projection,
+            segmentStart.Y + vy * projection);
+
+        return point.DistanceTo(closest);
+    }
+}
+~~~
+
 ~~~src\Td.Core\Domain\Maps\StaticMapCatalog.cs
 public sealed class StaticMapCatalog : IMapCatalog
 {
@@ -1273,12 +1742,139 @@ public enum MonsterClass
 ~~~src\Td.Core\Domain\Monsters\MonsterContent.cs
 using System.Collections.Generic;
 
-
 public static class MonsterContent
 {
     public static IReadOnlyList<MonsterType> All { get; } = new List<MonsterType>
     {
-        // Сюда нужно добавить 10 монстров.
+        new MonsterType
+        {
+            Id = "monster_t1_grunt",
+            Name = "Grunt",
+            Class = MonsterClass.Normal,
+            MaxHp = 70,
+            Speed = 60.0,
+            Armor = 0,
+            GoldReward = 8,
+            SlowResistance = 0.0,
+            Tier = 1
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t1_scout",
+            Name = "Scout",
+            Class = MonsterClass.Fast,
+            MaxHp = 45,
+            Speed = 95.0,
+            Armor = 0,
+            GoldReward = 9,
+            SlowResistance = 0.0,
+            Tier = 1
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t2_runner",
+            Name = "Runner",
+            Class = MonsterClass.Fast,
+            MaxHp = 80,
+            Speed = 105.0,
+            Armor = 0,
+            GoldReward = 12,
+            SlowResistance = 0.0,
+            Tier = 2
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t2_brute",
+            Name = "Brute",
+            Class = MonsterClass.Tank,
+            MaxHp = 240,
+            Speed = 42.0,
+            Armor = 3,
+            GoldReward = 16,
+            SlowResistance = 0.05,
+            Tier = 2
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t3_armored",
+            Name = "Armored",
+            Class = MonsterClass.Normal,
+            MaxHp = 200,
+            Speed = 55.0,
+            Armor = 5,
+            GoldReward = 18,
+            SlowResistance = 0.05,
+            Tier = 3
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t3_flyer",
+            Name = "Flyer",
+            Class = MonsterClass.Flying,
+            MaxHp = 120,
+            Speed = 82.0,
+            Armor = 1,
+            GoldReward = 15,
+            SlowResistance = 0.0,
+            Tier = 3
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t4_guard",
+            Name = "Guard",
+            Class = MonsterClass.Tank,
+            MaxHp = 460,
+            Speed = 36.0,
+            Armor = 8,
+            GoldReward = 25,
+            SlowResistance = 0.10,
+            Tier = 4
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t4_skyflyer",
+            Name = "Skyflyer",
+            Class = MonsterClass.Flying,
+            MaxHp = 170,
+            Speed = 112.0,
+            Armor = 2,
+            GoldReward = 22,
+            SlowResistance = 0.10,
+            Tier = 4
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t5_juggernaut",
+            Name = "Juggernaut",
+            Class = MonsterClass.Tank,
+            MaxHp = 850,
+            Speed = 30.0,
+            Armor = 12,
+            GoldReward = 40,
+            SlowResistance = 0.20,
+            Tier = 5
+        },
+
+        new MonsterType
+        {
+            Id = "monster_t5_alpha",
+            Name = "Alpha",
+            Class = MonsterClass.Normal,
+            MaxHp = 380,
+            Speed = 66.0,
+            Armor = 6,
+            GoldReward = 32,
+            SlowResistance = 0.15,
+            Tier = 5
+        }
     };
 }
 ~~~
@@ -1326,34 +1922,47 @@ public sealed class MonsterState
     /// Учитывает сопротивление монстра и абсолютный лимит игры (MaxSlowPercent).
     /// Правило стакинга: берется максимальный процент, таймер обновляется до максимального значения.
     /// </summary>
-    public void ApplySlow(double basePercent, double durationSeconds)
-    {
-        if (basePercent <= 0 || durationSeconds <= 0) return;
+	public void ApplySlow(double basePercent, double durationSeconds)
+	{
+		if (basePercent <= 0 || durationSeconds <= 0) return;
 
-        // 1. Учет сопротивления (линейное снижение)
-        double effectivePercent = basePercent * (1.0 - Type.SlowResistance);
-        
-        // 2. Применение абсолютного лимита игры (потолок)
-        effectivePercent = Math.Min(effectivePercent, MechanicsLimits.MaxSlowPercent);
+		double clampedBasePercent = Math.Clamp(basePercent, 0.0, 1.0);
+		double clampedSlowResistance = Math.Clamp(Type.SlowResistance, 0.0, 1.0);
 
-        // 3. Стакинг (Refresh & Max)
-        if (Slow == null)
-        {
-            Slow = new SlowStatus 
-            { 
-                Percent = effectivePercent, 
-                RemainingSeconds = durationSeconds 
-            };
-        }
-        else
-        {
-            Slow = Slow with
-            {
-                Percent = Math.Max(Slow.Percent, effectivePercent),
-                RemainingSeconds = Math.Max(Slow.RemainingSeconds, durationSeconds)
-            };
-        }
-    }
+		// 1. Учет сопротивления (линейное снижение)
+		double effectivePercent = clampedBasePercent * (1.0 - clampedSlowResistance);
+
+		// 2. Применение абсолютного лимита игры (потолок)
+		effectivePercent = Math.Min(effectivePercent, MechanicsLimits.MaxSlowPercent);
+
+		// 3. Стакинг (Refresh & Max)
+		if (Slow == null)
+		{
+			Slow = new SlowStatus
+			{
+				Percent = effectivePercent,
+				RemainingSeconds = durationSeconds
+			};
+		}
+		else
+		{
+			Slow = Slow with
+			{
+				Percent = Math.Max(Slow.Percent, effectivePercent),
+				RemainingSeconds = Math.Max(Slow.RemainingSeconds, durationSeconds)
+			};
+		}
+	}
+	
+	/// <summary>
+	/// Применяет урон к монстру. Здоровье автоматически ограничивается диапазоном [0, MaxHp].
+	/// </summary>
+	public void ApplyDamage(int damage)
+	{
+		if (damage <= 0) return;
+
+		CurrentHp -= damage;
+	}
 
     /// <summary>
     /// Обновляет таймер замедления на шаг симуляции. Сбрасывает эффект при истечении.
@@ -1379,19 +1988,27 @@ public sealed class MonsterState
 public sealed record MonsterType
 {
     public required string Id { get; init; }
+
     public required string Name { get; init; }
 
     public required MonsterClass Class { get; init; }
 
     public required int MaxHp { get; init; }
+
     public required double Speed { get; init; }
 
     public required int Armor { get; init; }
+
     public required int GoldReward { get; init; }
 
     public required double SlowResistance { get; init; }
-	
-	public required int Tier { get; init; }
+
+    public required int Tier { get; init; }
+
+    /// <summary>
+    /// Является ли монстр воздушной целью.
+    /// </summary>
+    public bool IsFlying => Class == MonsterClass.Flying;
 }
 ~~~
 
@@ -1413,12 +2030,205 @@ public interface ISellRefundPolicy
 ~~~src\Td.Core\Domain\Towers\TowerContent.cs
 using System.Collections.Generic;
 
-
 public static class TowerContent
 {
     public static IReadOnlyList<TowerType> All { get; } = new List<TowerType>
     {
-        // Сюда нужно добавить 4 башни.
+        new TowerType
+        {
+            Id = "tower_gun",
+            Name = "Gun Tower",
+            Kind = TowerKind.Normal,
+            BaseCost = 100,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 12,
+                    Range = 120.0,
+                    CooldownSeconds = 0.60,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 80,
+                    Damage = 20,
+                    Range = 130.0,
+                    CooldownSeconds = 0.55,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 130,
+                    Damage = 32,
+                    Range = 140.0,
+                    CooldownSeconds = 0.50,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+
+        new TowerType
+        {
+            Id = "tower_frost",
+            Name = "Frost Tower",
+            Kind = TowerKind.Slow,
+            BaseCost = 120,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 6,
+                    Range = 110.0,
+                    CooldownSeconds = 0.80,
+                    SlowPercent = 0.25,
+                    SlowDurationSeconds = 1.5,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 90,
+                    Damage = 9,
+                    Range = 120.0,
+                    CooldownSeconds = 0.75,
+                    SlowPercent = 0.35,
+                    SlowDurationSeconds = 2.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 140,
+                    Damage = 12,
+                    Range = 130.0,
+                    CooldownSeconds = 0.70,
+                    SlowPercent = 0.45,
+                    SlowDurationSeconds = 2.5,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+
+        new TowerType
+        {
+            Id = "tower_cannon",
+            Name = "Cannon Tower",
+            Kind = TowerKind.Area,
+            BaseCost = 160,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 18,
+                    Range = 130.0,
+                    CooldownSeconds = 1.40,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 45.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 120,
+                    Damage = 28,
+                    Range = 140.0,
+                    CooldownSeconds = 1.30,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 55.0,
+                    ArmorIgnorePercent = 0.0
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 180,
+                    Damage = 40,
+                    Range = 150.0,
+                    CooldownSeconds = 1.20,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 65.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+
+        new TowerType
+        {
+            Id = "tower_sniper",
+            Name = "Sniper Tower",
+            Kind = TowerKind.ArmorPiercing,
+            BaseCost = 180,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 25,
+                    Range = 170.0,
+                    CooldownSeconds = 1.60,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.45
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 140,
+                    Damage = 40,
+                    Range = 190.0,
+                    CooldownSeconds = 1.50,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.65
+                },
+
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 200,
+                    Damage = 60,
+                    Range = 210.0,
+                    CooldownSeconds = 1.40,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.85
+                }
+            }
+        }
     };
 }
 ~~~
@@ -1468,7 +2278,36 @@ public sealed class TowerState
     
     // Позиция башни фиксируется при установке. 
     // Если в игре не предусмотрено перемещение башен, рекомендуется заменить set на init.
-    public required Point2D Position { get; set; } 
+    public required Point2D Position { get; set; }
+
+	/// <summary>
+	/// Оставшееся время до следующего выстрела.
+	/// </summary>
+	public double CooldownRemainingSeconds { get; private set; }
+
+	/// <summary>
+	/// Уменьшает кулдаун на шаг симуляции.
+	/// </summary>
+	public void TickCooldown(double deltaSeconds)
+	{
+		if (deltaSeconds <= 0) return;
+		if (CooldownRemainingSeconds <= 0) return;
+
+		CooldownRemainingSeconds = Math.Max(0.0, CooldownRemainingSeconds - deltaSeconds);
+	}
+
+	/// <summary>
+	/// Устанавливает кулдаун после выстрела.
+	/// </summary>
+	public void SetCooldown(double cooldownSeconds)
+	{
+		if (cooldownSeconds < 0)
+		{
+			throw new ArgumentException("Cooldown cannot be negative.");
+		}
+
+		CooldownRemainingSeconds = cooldownSeconds;
+	}
 
     /// <summary>
     /// Текущий уровень башни. 
@@ -1545,6 +2384,7 @@ public sealed class TowerState
 public sealed record TowerType
 {
     public required string Id { get; init; }
+
     public required string Name { get; init; }
 
     public required TowerKind Kind { get; init; }
@@ -1552,8 +2392,14 @@ public sealed record TowerType
     public required int BaseCost { get; init; }
 
     public required IReadOnlyList<TowerLevelDefinition> Levels { get; init; }
-	
-	public double FootprintRadius { get; init; } = 24.0;
+
+    public double FootprintRadius { get; init; } = 24.0;
+
+    /// <summary>
+    /// Может ли башня атаковать летающие цели.
+    /// По умолчанию разрешено, чтобы не ломать существующий контент.
+    /// </summary>
+    public bool CanTargetFlying { get; init; } = true;
 }
 ~~~
 
@@ -1566,6 +2412,230 @@ public interface IRandomWaveGenerator
         int waveNumber,
         int totalWaves,
         Random random);
+}
+~~~
+
+~~~src\Td.Core\Domain\Waves\RandomWaveGenerator.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// Генератор случайных волн.
+/// Правила генерации зафиксированы в ADR 0004.
+/// Баланс является плейсхолдером до этапа N15.
+/// </summary>
+public sealed class RandomWaveGenerator : IRandomWaveGenerator
+{
+    private const int SafetyIterationLimit = 10_000;
+
+    private readonly IReadOnlyList<MonsterType> _monsterCatalog;
+
+    public RandomWaveGenerator(IReadOnlyList<MonsterType> monsterCatalog)
+    {
+        ArgumentNullException.ThrowIfNull(monsterCatalog);
+
+        if (monsterCatalog.Count == 0)
+        {
+            throw new ArgumentException("Monster catalog cannot be empty.", nameof(monsterCatalog));
+        }
+
+        _monsterCatalog = monsterCatalog;
+    }
+
+    public int RollTotalWaveCount(Random random)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+
+        return random.Next(
+            WaveGenerationRules.MinWaveCount,
+            WaveGenerationRules.MaxWaveCount + 1);
+    }
+
+    public WaveDefinition GenerateWave(int waveNumber, int totalWaves, Random random)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        ValidateWaveNumbers(waveNumber, totalWaves);
+
+        int maxTier = GetMaxAllowedTier(waveNumber, totalWaves);
+        int budget = GetWaveBudget(waveNumber);
+        int maxMonsters = Math.Max(1, WaveGenerationRules.MaxAliveMonsters);
+
+        List<MonsterType> allowed = _monsterCatalog
+            .Where(monster => monster.Tier >= WaveGenerationRules.MinMonsterTier)
+            .Where(monster => monster.Tier <= maxTier)
+            .OrderBy(monster => monster.Id, StringComparer.Ordinal)
+            .ToList();
+
+        if (allowed.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"No monsters are available for wave {waveNumber}/{totalWaves} with max tier {maxTier}.");
+        }
+
+        Dictionary<string, int> counts = new(StringComparer.Ordinal);
+        int totalMonsters = 0;
+
+        TryAddGuaranteedMaxTierMonster(
+            allowed,
+            maxTier,
+            random,
+            ref budget,
+            ref totalMonsters,
+            maxMonsters,
+            counts);
+
+        int minCost = allowed.Min(MonsterCost);
+        int guard = 0;
+
+        while (budget >= minCost && totalMonsters < maxMonsters && guard < SafetyIterationLimit)
+        {
+            guard++;
+
+            MonsterType candidate = allowed[random.Next(allowed.Count)];
+            int cost = MonsterCost(candidate);
+
+            if (cost > budget)
+            {
+                continue;
+            }
+
+            AddMonster(counts, candidate.Id);
+            budget -= cost;
+            totalMonsters++;
+        }
+
+        if (totalMonsters == 0)
+        {
+            MonsterType cheapest = allowed
+                .OrderBy(monster => MonsterCost(monster))
+                .ThenBy(monster => monster.Id, StringComparer.Ordinal)
+                .First();
+
+            AddMonster(counts, cheapest.Id);
+            totalMonsters = 1;
+        }
+
+        IReadOnlyList<WaveEntry> entries = counts
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new WaveEntry
+            {
+                MonsterTypeId = pair.Key,
+                Count = pair.Value
+            })
+            .ToList();
+
+        return new WaveDefinition
+        {
+            WaveNumber = waveNumber,
+            TotalWaves = totalWaves,
+            Entries = entries
+        };
+    }
+
+    public IReadOnlyList<WaveDefinition> GenerateAllWaves(Random random)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+
+        int totalWaves = RollTotalWaveCount(random);
+        List<WaveDefinition> waves = new(totalWaves);
+
+        for (int waveNumber = 1; waveNumber <= totalWaves; waveNumber++)
+        {
+            waves.Add(GenerateWave(waveNumber, totalWaves, random));
+        }
+
+        return waves;
+    }
+
+    private static void ValidateWaveNumbers(int waveNumber, int totalWaves)
+    {
+        if (totalWaves < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(totalWaves),
+                "Total waves must be positive.");
+        }
+
+        if (waveNumber < 1 || waveNumber > totalWaves)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(waveNumber),
+                "Wave number must be between 1 and total waves.");
+        }
+    }
+
+    private static int GetWaveBudget(int waveNumber)
+    {
+        return WaveGenerationRules.BaseWaveBudget +
+               (waveNumber - 1) * WaveGenerationRules.WaveBudgetGrowth;
+    }
+
+    private static int GetMaxAllowedTier(int waveNumber, int totalWaves)
+    {
+        int tierSpan = WaveGenerationRules.MaxMonsterTier - WaveGenerationRules.MinMonsterTier;
+
+        if (tierSpan <= 0)
+        {
+            return WaveGenerationRules.MinMonsterTier;
+        }
+
+        double progress = (waveNumber - 1) / (double)Math.Max(1, totalWaves - 1);
+        int tier = WaveGenerationRules.MinMonsterTier + (int)Math.Floor(progress * tierSpan);
+
+        return Math.Clamp(
+            tier,
+            WaveGenerationRules.MinMonsterTier,
+            WaveGenerationRules.MaxMonsterTier);
+    }
+
+    private static int MonsterCost(MonsterType monster)
+    {
+        return Math.Max(1, monster.Tier);
+    }
+
+    private static void TryAddGuaranteedMaxTierMonster(
+        IReadOnlyList<MonsterType> allowed,
+        int maxTier,
+        Random random,
+        ref int budget,
+        ref int totalMonsters,
+        int maxMonsters,
+        IDictionary<string, int> counts)
+    {
+        if (totalMonsters >= maxMonsters)
+        {
+            return;
+        }
+
+        List<MonsterType> candidates = allowed
+            .Where(monster => monster.Tier == maxTier)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        MonsterType monster = candidates[random.Next(candidates.Count)];
+        int cost = MonsterCost(monster);
+
+        if (cost > budget)
+        {
+            return;
+        }
+
+        AddMonster(counts, monster.Id);
+        budget -= cost;
+        totalMonsters++;
+    }
+
+    private static void AddMonster(IDictionary<string, int> counts, string monsterTypeId)
+    {
+        counts[monsterTypeId] = counts.TryGetValue(monsterTypeId, out int existing)
+            ? existing + 1
+            : 1;
+    }
 }
 ~~~
 
@@ -1629,6 +2699,353 @@ public interface ISettingsService
 }
 ~~~
 
+~~~src\Td.Core\Simulation\DamageCalculator.cs
+using System;
+
+/// <summary>
+/// Реализация калькулятора урона по модели Flat Reduction.
+/// </summary>
+public sealed class DamageCalculator : IDamageCalculator
+{
+    public int CalculateDamage(TowerLevelDefinition towerLevel, MonsterType monsterType)
+    {
+        ArgumentNullException.ThrowIfNull(towerLevel);
+        ArgumentNullException.ThrowIfNull(monsterType);
+
+        double armorIgnorePercent = Math.Clamp(towerLevel.ArmorIgnorePercent, 0.0, 1.0);
+
+        int effectiveArmor = (int)Math.Floor(monsterType.Armor * (1.0 - armorIgnorePercent));
+
+        return Math.Max(1, towerLevel.Damage - effectiveArmor);
+    }
+}
+~~~
+
+~~~src\Td.Core\Simulation\GameSimulationEngine.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// Базовый симуляционный движок:
+/// спавн монстров, движение, замедление, атака башен, урон, смерть, утечка.
+/// </summary>
+public sealed class GameSimulationEngine : ISimulationEngine
+{
+    private const double ComparisonEpsilon = 0.0001;
+
+    private readonly IPathGeometry _pathGeometry;
+    private readonly IDamageCalculator _damageCalculator;
+    private readonly IReadOnlyList<WaveDefinition> _waves;
+    private readonly Dictionary<string, MonsterType> _monsterCatalogById;
+    private readonly Queue<SpawnRequest> _spawnQueue = new();
+
+    private double _spawnTimer;
+
+    public GameSimulationEngine(
+        IPathGeometry pathGeometry,
+        IDamageCalculator damageCalculator,
+        IReadOnlyList<MonsterType> monsterCatalog,
+        IReadOnlyList<WaveDefinition> waves)
+    {
+        _pathGeometry = pathGeometry ?? throw new ArgumentNullException(nameof(pathGeometry));
+        _damageCalculator = damageCalculator ?? throw new ArgumentNullException(nameof(damageCalculator));
+        _waves = waves ?? throw new ArgumentNullException(nameof(waves));
+
+        if (monsterCatalog is null)
+        {
+            throw new ArgumentNullException(nameof(monsterCatalog));
+        }
+
+        _monsterCatalogById = monsterCatalog.ToDictionary(monster => monster.Id, monster => monster);
+    }
+
+    public void StartNextWave(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Phase != GamePhase.Playing)
+        {
+            return;
+        }
+
+        if (_spawnQueue.Count > 0 || state.Monsters.Any(monster => monster.IsAlive))
+        {
+            return;
+        }
+
+        int maxWaves = Math.Min(state.TotalWaves, _waves.Count);
+
+        if (state.CurrentWave >= maxWaves)
+        {
+            return;
+        }
+
+        state.StartNextWave();
+
+        WaveDefinition wave = _waves[state.CurrentWave - 1];
+        EnqueueWave(wave);
+    }
+
+    public void Update(GameState state, double deltaSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Phase != GamePhase.Playing)
+        {
+            return;
+        }
+
+        if (deltaSeconds <= 0)
+        {
+            return;
+        }
+
+        ProcessSpawns(state, deltaSeconds);
+
+        UpdateMonsters(state, deltaSeconds);
+
+        if (state.Phase != GamePhase.Playing)
+        {
+            return;
+        }
+
+        UpdateTowers(state, deltaSeconds);
+    }
+
+    private void EnqueueWave(WaveDefinition wave)
+    {
+        foreach (WaveEntry entry in wave.Entries)
+        {
+            int count = Math.Max(0, entry.Count);
+
+            for (int i = 0; i < count; i++)
+            {
+                _spawnQueue.Enqueue(new SpawnRequest(entry.MonsterTypeId));
+            }
+        }
+
+        _spawnTimer = 0.0;
+    }
+
+    private void ProcessSpawns(GameState state, double deltaSeconds)
+    {
+        if (_spawnQueue.Count == 0)
+        {
+            _spawnTimer = 0.0;
+            return;
+        }
+
+        _spawnTimer -= deltaSeconds;
+
+        double interval = Math.Max(0.01, WaveGenerationRules.SpawnIntervalSeconds);
+
+        while (_spawnQueue.Count > 0 && _spawnTimer <= 0.0)
+        {
+            SpawnRequest request = _spawnQueue.Dequeue();
+
+            if (_monsterCatalogById.TryGetValue(request.MonsterTypeId, out MonsterType? monsterType))
+            {
+                state.AddMonster(CreateMonster(state, monsterType));
+            }
+
+            _spawnTimer += interval;
+        }
+    }
+
+    private static MonsterState CreateMonster(GameState state, MonsterType type)
+    {
+        Point2D startPosition = state.Map.Path.Count > 0
+            ? state.Map.Path[0]
+            : Point2D.Zero;
+
+        return new MonsterState
+        {
+            Id = Guid.NewGuid(),
+            Type = type,
+            Position = startPosition,
+            CurrentHp = type.MaxHp,
+            PathProgress = 0.0
+        };
+    }
+
+    private void UpdateMonsters(GameState state, double deltaSeconds)
+    {
+        IReadOnlyList<Point2D> path = state.Map.Path;
+        double pathLength = _pathGeometry.GetLength(path);
+
+        List<MonsterState> leaked = new();
+
+        foreach (MonsterState monster in state.Monsters)
+        {
+            if (!monster.IsAlive)
+            {
+                continue;
+            }
+
+            monster.TickSlow(deltaSeconds);
+
+            double slowPercent = monster.Slow?.Percent ?? 0.0;
+            double speedFactor = Math.Clamp(1.0 - slowPercent, 0.0, 1.0);
+
+            double moveDistance = monster.Type.Speed * speedFactor * deltaSeconds;
+
+            if (pathLength <= 0.0)
+            {
+                monster.PathProgress = 1.0;
+            }
+            else
+            {
+                monster.PathProgress += moveDistance / pathLength;
+            }
+
+            if (monster.PathProgress >= 1.0)
+            {
+                monster.Position = path.Count > 0 ? path[^1] : Point2D.Zero;
+                leaked.Add(monster);
+            }
+            else
+            {
+                monster.Position = _pathGeometry.GetPointAtDistance(
+                    path,
+                    monster.PathProgress * pathLength);
+            }
+        }
+
+        foreach (MonsterState monster in leaked)
+        {
+            state.ApplyBaseDamage(EconomyContent.MonsterLeakDamage);
+            state.RemoveMonster(monster);
+        }
+    }
+
+    private void UpdateTowers(GameState state, double deltaSeconds)
+    {
+        HashSet<MonsterState> killed = new();
+
+        foreach (TowerState tower in state.Towers)
+        {
+            tower.TickCooldown(deltaSeconds);
+
+            if (tower.CooldownRemainingSeconds > 0.0)
+            {
+                continue;
+            }
+
+            TowerLevelDefinition level = tower.CurrentLevelDefinition;
+
+            MonsterState? target = SelectTarget(state, tower, level.Range);
+
+            if (target is null)
+            {
+                continue;
+            }
+
+            tower.SetCooldown(level.CooldownSeconds);
+
+            Point2D impactPoint = target.Position;
+
+            foreach (MonsterState victim in GetDamageTargets(state, tower, level, impactPoint, target))
+            {
+                if (!victim.IsAlive)
+                {
+                    continue;
+                }
+
+                int damage = _damageCalculator.CalculateDamage(level, victim.Type);
+                victim.ApplyDamage(damage);
+
+                if (!victim.IsAlive)
+                {
+                    killed.Add(victim);
+                }
+            }
+        }
+
+        foreach (MonsterState monster in killed)
+        {
+            state.AddGold(monster.Type.GoldReward);
+            state.RemoveMonster(monster);
+        }
+    }
+
+    private static MonsterState? SelectTarget(
+        GameState state,
+        TowerState tower,
+        double range)
+    {
+        MonsterState? bestTarget = null;
+
+        foreach (MonsterState monster in state.Monsters)
+        {
+            if (!monster.IsAlive)
+            {
+                continue;
+            }
+
+            if (monster.Type.IsFlying && !tower.Type.CanTargetFlying)
+            {
+                continue;
+            }
+
+            double distance = tower.Position.DistanceTo(monster.Position);
+
+            if (distance > range + ComparisonEpsilon)
+            {
+                continue;
+            }
+
+            if (bestTarget is null || monster.PathProgress > bestTarget.PathProgress)
+            {
+                bestTarget = monster;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    private static IReadOnlyList<MonsterState> GetDamageTargets(
+        GameState state,
+        TowerState tower,
+        TowerLevelDefinition level,
+        Point2D impactPoint,
+        MonsterState primaryTarget)
+    {
+        List<MonsterState> targets = new();
+
+        if (level.SplashRadius <= 0.0)
+        {
+            targets.Add(primaryTarget);
+            return targets;
+        }
+
+        foreach (MonsterState monster in state.Monsters)
+        {
+            if (!monster.IsAlive)
+            {
+                continue;
+            }
+
+            if (monster.Type.IsFlying && !tower.Type.CanTargetFlying)
+            {
+                continue;
+            }
+
+            double distance = monster.Position.DistanceTo(impactPoint);
+
+            if (distance <= level.SplashRadius + ComparisonEpsilon)
+            {
+                targets.Add(monster);
+            }
+        }
+
+        return targets;
+    }
+
+    private sealed record SpawnRequest(string MonsterTypeId);
+}
+~~~
+
 ~~~src\Td.Core\Simulation\IDamageCalculator.cs
 
 
@@ -1649,6 +3066,27 @@ public interface IDamageCalculator
     /// 2. FinalDamage = Max(1, TowerLevelDefinition.Damage - EffectiveArmor)
     /// </returns>
     int CalculateDamage(TowerLevelDefinition towerLevel, MonsterType monsterType);
+}
+~~~
+
+~~~src\Td.Core\Simulation\ISimulationEngine.cs
+/// <summary>
+/// Контракт игрового симуляционного движка.
+/// Движок обновляет состояние игры на фиксированный шаг симуляции.
+/// </summary>
+public interface ISimulationEngine
+{
+    /// <summary>
+    /// Запускает следующую волну, если это допустимо текущим состоянием игры.
+    /// </summary>
+    void StartNextWave(GameState state);
+
+    /// <summary>
+    /// Обновляет симуляцию на один фиксированный шаг.
+    /// </summary>
+    /// <param name="state">Текущее состояние игры.</param>
+    /// <param name="deltaSeconds">Шаг времени в симуляционных секундах.</param>
+    void Update(GameState state, double deltaSeconds);
 }
 ~~~
 
@@ -1776,4 +3214,519 @@ public partial class MainWindow : Window
   </ItemGroup>
 
 </Project>
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Maps\PathGeometryTests.cs
+using System.Collections.Generic;
+
+public sealed class PathGeometryTests
+{
+    private readonly PathGeometry _geometry = new();
+
+    [Fact]
+    public void GetLength_ReturnsPolylineLength()
+    {
+        IReadOnlyList<Point2D> path = new List<Point2D>
+        {
+            new(0, 0),
+            new(10, 0),
+            new(10, 10)
+        };
+
+        double length = _geometry.GetLength(path);
+
+        Assert.Equal(20.0, length);
+    }
+
+    [Fact]
+    public void GetPointAtDistance_InterpolatesPoint()
+    {
+        IReadOnlyList<Point2D> path = new List<Point2D>
+        {
+            new(0, 0),
+            new(100, 0)
+        };
+
+        Point2D point = _geometry.GetPointAtDistance(path, 30.0);
+
+        Assert.Equal(30.0, point.X);
+        Assert.Equal(0.0, point.Y);
+    }
+
+    [Fact]
+    public void GetPointAtDistance_ReturnsLastPointWhenDistanceExceedsLength()
+    {
+        IReadOnlyList<Point2D> path = new List<Point2D>
+        {
+            new(0, 0),
+            new(100, 0)
+        };
+
+        Point2D point = _geometry.GetPointAtDistance(path, 250.0);
+
+        Assert.Equal(100.0, point.X);
+        Assert.Equal(0.0, point.Y);
+    }
+
+    [Fact]
+    public void GetDistanceToPath_ReturnsDistanceToSegment()
+    {
+        IReadOnlyList<Point2D> path = new List<Point2D>
+        {
+            new(0, 0),
+            new(100, 0)
+        };
+
+        double distance = _geometry.GetDistanceToPath(path, new Point2D(50, 20));
+
+        Assert.Equal(20.0, distance);
+    }
+}
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Monsters\MonsterStateSlowTests.cs
+using System;
+
+public sealed class MonsterStateSlowTests
+{
+    [Fact]
+    public void ApplySlow_AppliesEffectivePercentAfterResistance()
+    {
+        var monster = CreateMonster(slowResistance: 0.2);
+
+        monster.ApplySlow(basePercent: 0.5, durationSeconds: 2.0);
+
+        Assert.NotNull(monster.Slow);
+        Assert.Equal(0.4, monster.Slow.Percent);
+        Assert.Equal(2.0, monster.Slow.RemainingSeconds);
+    }
+
+    [Fact]
+    public void ApplySlow_CapsAtMaxSlowPercent()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 1.0, durationSeconds: 2.0);
+
+        Assert.NotNull(monster.Slow);
+        Assert.Equal(MechanicsLimits.MaxSlowPercent, monster.Slow.Percent);
+    }
+
+    [Fact]
+    public void ApplySlow_KeepsMaxPercentAndMaxDuration()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.3, durationSeconds: 2.0);
+        monster.ApplySlow(basePercent: 0.5, durationSeconds: 1.0);
+
+        Assert.NotNull(monster.Slow);
+        Assert.Equal(0.5, monster.Slow.Percent);
+        Assert.Equal(2.0, monster.Slow.RemainingSeconds);
+    }
+
+    [Fact]
+    public void ApplySlow_RefreshesDurationIfIncomingDurationIsLonger()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.5, durationSeconds: 1.0);
+        monster.ApplySlow(basePercent: 0.3, durationSeconds: 3.0);
+
+        Assert.NotNull(monster.Slow);
+        Assert.Equal(0.5, monster.Slow.Percent);
+        Assert.Equal(3.0, monster.Slow.RemainingSeconds);
+    }
+
+    [Fact]
+    public void ApplySlow_IgnoresZeroDuration()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.5, durationSeconds: 0.0);
+
+        Assert.Null(monster.Slow);
+    }
+
+    [Fact]
+    public void ApplySlow_IgnoresZeroPercent()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.0, durationSeconds: 2.0);
+
+        Assert.Null(monster.Slow);
+    }
+
+    [Fact]
+    public void TickSlow_DecreasesRemainingSeconds()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.4, durationSeconds: 2.0);
+        monster.TickSlow(deltaSeconds: 0.5);
+
+        Assert.NotNull(monster.Slow);
+        Assert.Equal(1.5, monster.Slow.RemainingSeconds);
+    }
+
+    [Fact]
+    public void TickSlow_RemovesSlowWhenExpired()
+    {
+        var monster = CreateMonster(slowResistance: 0.0);
+
+        monster.ApplySlow(basePercent: 0.4, durationSeconds: 1.0);
+        monster.TickSlow(deltaSeconds: 1.0);
+
+        Assert.Null(monster.Slow);
+    }
+
+    private static MonsterState CreateMonster(double slowResistance)
+    {
+        var type = new MonsterType
+        {
+            Id = "monster_test",
+            Name = "Test Monster",
+            Class = MonsterClass.Normal,
+            MaxHp = 100,
+            Speed = 50.0,
+            Armor = 0,
+            GoldReward = 10,
+            SlowResistance = slowResistance,
+            Tier = 1
+        };
+
+        return new MonsterState
+        {
+            Id = Guid.NewGuid(),
+            Type = type,
+            Position = Point2D.Zero,
+            CurrentHp = type.MaxHp
+        };
+    }
+}
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Monsters\MonsterTypeTests.cs
+public sealed class MonsterTypeTests
+{
+    [Theory]
+    [InlineData(MonsterClass.Normal, false)]
+    [InlineData(MonsterClass.Fast, false)]
+    [InlineData(MonsterClass.Tank, false)]
+    [InlineData(MonsterClass.Flying, true)]
+    public void IsFlying_DependsOnMonsterClass(MonsterClass monsterClass, bool expected)
+    {
+        var monsterType = new MonsterType
+        {
+            Id = "monster_test",
+            Name = "Test Monster",
+            Class = monsterClass,
+            MaxHp = 100,
+            Speed = 50.0,
+            Armor = 0,
+            GoldReward = 10,
+            SlowResistance = 0.0,
+            Tier = 1
+        };
+
+        Assert.Equal(expected, monsterType.IsFlying);
+    }
+}
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Towers\TowerTypeTargetingTests.cs
+using System.Collections.Generic;
+
+public sealed class TowerTypeTargetingTests
+{
+    [Fact]
+    public void CanTargetFlying_DefaultsToTrue()
+    {
+        var towerType = CreateTowerType();
+
+        Assert.True(towerType.CanTargetFlying);
+    }
+
+    [Fact]
+    public void CanTargetFlying_CanBeSetToFalse()
+    {
+        var towerType = CreateTowerType(canTargetFlying: false);
+
+        Assert.False(towerType.CanTargetFlying);
+    }
+
+    private static TowerType CreateTowerType(bool canTargetFlying = true)
+    {
+        return new TowerType
+        {
+            Id = "tower_test",
+            Name = "Test Tower",
+            Kind = TowerKind.Normal,
+            BaseCost = 100,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 10,
+                    Range = 100.0,
+                    CooldownSeconds = 1.0,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            },
+            CanTargetFlying = canTargetFlying
+        };
+    }
+}
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Waves\RandomWaveGeneratorTests.cs
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+public sealed class RandomWaveGeneratorTests
+{
+    private readonly RandomWaveGenerator _generator = new(MonsterContent.All);
+
+    [Fact]
+    public void RollTotalWaveCount_ReturnsValueInRange()
+    {
+        for (int seed = 0; seed < 100; seed++)
+        {
+            Random random = new(seed);
+
+            int totalWaves = _generator.RollTotalWaveCount(random);
+
+            Assert.InRange(
+                totalWaves,
+                WaveGenerationRules.MinWaveCount,
+                WaveGenerationRules.MaxWaveCount);
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(11, 10)]
+    [InlineData(1, 0)]
+    public void GenerateWave_ThrowsForInvalidArguments(int waveNumber, int totalWaves)
+    {
+        Random random = new(42);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => _generator.GenerateWave(waveNumber, totalWaves, random));
+    }
+
+    [Fact]
+    public void GenerateWave_ReturnsValidWave()
+    {
+        Random random = new(42);
+
+        WaveDefinition wave = _generator.GenerateWave(5, 20, random);
+
+        Assert.Equal(5, wave.WaveNumber);
+        Assert.Equal(20, wave.TotalWaves);
+        Assert.NotEmpty(wave.Entries);
+
+        int totalMonsters = 0;
+
+        foreach (WaveEntry entry in wave.Entries)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(entry.MonsterTypeId));
+            Assert.True(entry.Count > 0);
+
+            MonsterType? monster = MonsterContent.All
+                .FirstOrDefault(m => m.Id == entry.MonsterTypeId);
+
+            Assert.NotNull(monster);
+
+            totalMonsters += entry.Count;
+        }
+
+        Assert.True(totalMonsters <= WaveGenerationRules.MaxAliveMonsters);
+    }
+
+    [Fact]
+    public void GenerateWave_FirstWave_UsesOnlyTierOneMonsters()
+    {
+        Random random = new(42);
+
+        WaveDefinition wave = _generator.GenerateWave(1, 20, random);
+
+        foreach (WaveEntry entry in wave.Entries)
+        {
+            MonsterType monster = MonsterContent.All
+                .First(m => m.Id == entry.MonsterTypeId);
+
+            Assert.Equal(1, monster.Tier);
+        }
+    }
+
+    [Fact]
+    public void GenerateWave_IsDeterministicForSameSeed()
+    {
+        WaveDefinition first = _generator.GenerateWave(7, 20, new Random(123));
+        WaveDefinition second = _generator.GenerateWave(7, 20, new Random(123));
+
+        Assert.Equal(first.WaveNumber, second.WaveNumber);
+        Assert.Equal(first.TotalWaves, second.TotalWaves);
+        Assert.Equal(first.Entries.Count, second.Entries.Count);
+
+        for (int i = 0; i < first.Entries.Count; i++)
+        {
+            Assert.Equal(first.Entries[i].MonsterTypeId, second.Entries[i].MonsterTypeId);
+            Assert.Equal(first.Entries[i].Count, second.Entries[i].Count);
+        }
+    }
+
+    [Fact]
+    public void GenerateAllWaves_ReturnsSequentialWaves()
+    {
+        Random random = new(77);
+
+        IReadOnlyList<WaveDefinition> waves = _generator.GenerateAllWaves(random);
+
+        Assert.InRange(
+            waves.Count,
+            WaveGenerationRules.MinWaveCount,
+            WaveGenerationRules.MaxWaveCount);
+
+        for (int i = 0; i < waves.Count; i++)
+        {
+            Assert.Equal(i + 1, waves[i].WaveNumber);
+            Assert.Equal(waves.Count, waves[i].TotalWaves);
+            Assert.NotEmpty(waves[i].Entries);
+        }
+    }
+}
+~~~
+
+~~~tests\Td.Core.Tests\Simulation\DamageCalculatorTests.cs
+using System;
+
+public sealed class DamageCalculatorTests
+{
+    private readonly DamageCalculator _calculator = new();
+
+    [Fact]
+    public void CalculateDamage_ReturnsAtLeastOne()
+    {
+        var towerLevel = CreateTowerLevel(damage: 5, armorIgnorePercent: 0.0);
+        var monsterType = CreateMonsterType(armor: 20);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        Assert.Equal(1, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_AppliesFlatReduction()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: 0.0);
+        var monsterType = CreateMonsterType(armor: 5);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        Assert.Equal(15, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_AppliesPartialArmorIgnore()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: 0.5);
+        var monsterType = CreateMonsterType(armor: 10);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        // EffectiveArmor = Floor(10 * 0.5) = 5
+        Assert.Equal(15, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_AppliesFullArmorIgnore()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: 1.0);
+        var monsterType = CreateMonsterType(armor: 10);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        Assert.Equal(20, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_ClampsNegativeArmorIgnoreToZero()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: -0.5);
+        var monsterType = CreateMonsterType(armor: 10);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        // ArmorIgnorePercent clamped to 0, EffectiveArmor = 10
+        Assert.Equal(10, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_ClampsArmorIgnoreAboveOneToOne()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: 1.5);
+        var monsterType = CreateMonsterType(armor: 10);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        // ArmorIgnorePercent clamped to 1, EffectiveArmor = 0
+        Assert.Equal(20, damage);
+    }
+
+    [Fact]
+    public void CalculateDamage_UsesFloorForEffectiveArmor()
+    {
+        var towerLevel = CreateTowerLevel(damage: 20, armorIgnorePercent: 0.33);
+        var monsterType = CreateMonsterType(armor: 3);
+
+        int damage = _calculator.CalculateDamage(towerLevel, monsterType);
+
+        // EffectiveArmor = Floor(3 * 0.67) = Floor(2.01) = 2
+        Assert.Equal(18, damage);
+    }
+
+    private static TowerLevelDefinition CreateTowerLevel(
+        int damage,
+        double armorIgnorePercent)
+    {
+        return new TowerLevelDefinition
+        {
+            Level = 1,
+            UpgradeCost = 0,
+            Damage = damage,
+            Range = 100.0,
+            CooldownSeconds = 1.0,
+            SlowPercent = 0.0,
+            SlowDurationSeconds = 0.0,
+            SplashRadius = 0.0,
+            ArmorIgnorePercent = armorIgnorePercent
+        };
+    }
+
+    private static MonsterType CreateMonsterType(int armor)
+    {
+        return new MonsterType
+        {
+            Id = "monster_test",
+            Name = "Test Monster",
+            Class = MonsterClass.Normal,
+            MaxHp = 100,
+            Speed = 50.0,
+            Armor = armor,
+            GoldReward = 10,
+            SlowResistance = 0.0,
+            Tier = 1
+        };
+    }
+
+}
 ~~~
