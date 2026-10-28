@@ -16,7 +16,6 @@ public static class MonsterContent
             SlowResistance = 0.0,
             Tier = 1
         },
-
         new MonsterType
         {
             Id = "monster_t1_scout",
@@ -29,7 +28,6 @@ public static class MonsterContent
             SlowResistance = 0.0,
             Tier = 1
         },
-
         new MonsterType
         {
             Id = "monster_t2_runner",
@@ -42,7 +40,6 @@ public static class MonsterContent
             SlowResistance = 0.0,
             Tier = 2
         },
-
         new MonsterType
         {
             Id = "monster_t2_brute",
@@ -55,7 +52,6 @@ public static class MonsterContent
             SlowResistance = 0.05,
             Tier = 2
         },
-
         new MonsterType
         {
             Id = "monster_t3_armored",
@@ -68,7 +64,6 @@ public static class MonsterContent
             SlowResistance = 0.05,
             Tier = 3
         },
-
         new MonsterType
         {
             Id = "monster_t3_flyer",
@@ -81,7 +76,6 @@ public static class MonsterContent
             SlowResistance = 0.0,
             Tier = 3
         },
-
         new MonsterType
         {
             Id = "monster_t4_guard",
@@ -94,7 +88,6 @@ public static class MonsterContent
             SlowResistance = 0.10,
             Tier = 4
         },
-
         new MonsterType
         {
             Id = "monster_t4_skyflyer",
@@ -107,7 +100,6 @@ public static class MonsterContent
             SlowResistance = 0.10,
             Tier = 4
         },
-
         new MonsterType
         {
             Id = "monster_t5_juggernaut",
@@ -120,7 +112,6 @@ public static class MonsterContent
             SlowResistance = 0.20,
             Tier = 5
         },
-
         new MonsterType
         {
             Id = "monster_t5_alpha",
