@@ -24,7 +24,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 2,
@@ -37,7 +36,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 3,
@@ -52,7 +50,6 @@ public static class TowerContent
                 }
             }
         },
-
         new TowerType
         {
             Id = "tower_frost",
@@ -73,7 +70,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 2,
@@ -86,7 +82,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 3,
@@ -101,7 +96,6 @@ public static class TowerContent
                 }
             }
         },
-
         new TowerType
         {
             Id = "tower_cannon",
@@ -122,7 +116,6 @@ public static class TowerContent
                     SplashRadius = 45.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 2,
@@ -135,7 +128,6 @@ public static class TowerContent
                     SplashRadius = 55.0,
                     ArmorIgnorePercent = 0.0
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 3,
@@ -150,7 +142,6 @@ public static class TowerContent
                 }
             }
         },
-
         new TowerType
         {
             Id = "tower_sniper",
@@ -171,7 +162,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.45
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 2,
@@ -184,7 +174,6 @@ public static class TowerContent
                     SplashRadius = 0.0,
                     ArmorIgnorePercent = 0.65
                 },
-
                 new TowerLevelDefinition
                 {
                     Level = 3,

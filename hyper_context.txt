@@ -7,6 +7,8 @@ tests
 TowerDefense.slnx
 docs\decisions
 docs\dag.cmake
+docs\dag.cmake.cmake
+docs\known-defects.cmake
 docs\decisions\0001-game-loop.cmake
 docs\decisions\0002-mechanics-status-contracts.cmake
 docs\decisions\0003-simulation-engine-assumptions.cmake
@@ -17,9 +19,12 @@ src\Td.Core\Content
 src\Td.Core\Domain
 src\Td.Core\Services
 src\Td.Core\Simulation
+src\Td.Core\Namespaces.cs
 src\Td.Core\Td.Core.csproj
 src\Td.Core\Content\ContentCatalog.cs
 src\Td.Core\Content\EconomyContent.cs
+src\Td.Core\Content\MonsterContent.cs
+src\Td.Core\Content\TowerContent.cs
 src\Td.Core\Content\WaveGenerationRules.cs
 src\Td.Core\Domain\Common
 src\Td.Core\Domain\Game
@@ -32,6 +37,7 @@ src\Td.Core\Domain\Common\GameSpeed.cs
 src\Td.Core\Domain\Common\MechanicsLimits.cs
 src\Td.Core\Domain\Common\Point2D.cs
 src\Td.Core\Domain\Game\GameState.cs
+src\Td.Core\Domain\Maps\DefaultMapCatalog.cs
 src\Td.Core\Domain\Maps\IMapCatalog.cs
 src\Td.Core\Domain\Maps\IPathGeometry.cs
 src\Td.Core\Domain\Maps\IPlacementValidator.cs
@@ -40,12 +46,10 @@ src\Td.Core\Domain\Maps\MapPlacementValidator.cs
 src\Td.Core\Domain\Maps\PathGeometry.cs
 src\Td.Core\Domain\Maps\StaticMapCatalog.cs
 src\Td.Core\Domain\Monsters\MonsterClass.cs
-src\Td.Core\Domain\Monsters\MonsterContent.cs
 src\Td.Core\Domain\Monsters\MonsterState.cs
 src\Td.Core\Domain\Monsters\MonsterType.cs
 src\Td.Core\Domain\Monsters\SlowStatus.cs
 src\Td.Core\Domain\Towers\ISellRefundPolicy.cs
-src\Td.Core\Domain\Towers\TowerContent.cs
 src\Td.Core\Domain\Towers\TowerKind.cs
 src\Td.Core\Domain\Towers\TowerLevelDefinition.cs
 src\Td.Core\Domain\Towers\TowerState.cs
@@ -78,6 +82,7 @@ tests\Td.Core.Tests\Domain\Maps
 tests\Td.Core.Tests\Domain\Monsters
 tests\Td.Core.Tests\Domain\Towers
 tests\Td.Core.Tests\Domain\Waves
+tests\Td.Core.Tests\Domain\Maps\DefaultMapCatalogTests.cs
 tests\Td.Core.Tests\Domain\Maps\PathGeometryTests.cs
 tests\Td.Core.Tests\Domain\Monsters\MonsterStateSlowTests.cs
 tests\Td.Core.Tests\Domain\Monsters\MonsterTypeTests.cs
@@ -733,6 +738,1038 @@ N5 Mechanics/status contracts
 ```
 ~~~
 
+~~~docs\dag.cmake.cmake
+# Tower Defense — DAG выполнения проекта
+
+Дата последнего обновления: 2026-06-15 (восстановительная ревизия)
+Проект: `TowerDefense`
+Путь к решению: `C:\Users\Programmist\Desktop\Game`
+
+> Документ переведен в режим восстановления.
+> Часть ранее заявленных закрытых шагов не подтверждена артефактами в предоставленном срезе.
+> До завершения восстановления новые функциональные шаги не открываются.
+
+Связанный документ:
+
+```text
+docs/known-defects.md
+```
+
+---
+
+## 1. Текущий статус
+
+Полностью закрытых шагов:
+
+```text
+0 / 19 узлов закрыто полностью
+```
+
+Восстановительная классификация:
+
+```text
+DONE: нет
+DONE_WITH_GAPS: N0, N2
+PARTIAL: N1
+REOPEN: N3
+ACTIVE_BLOCKED: N4
+PENDING_NON_ACCEPTED: N5, N6, N7
+PENDING: N8, N9, N10, N11, N12, N13, N14, N15, N16, N17, N18
+```
+
+Текущий активный шаг:
+
+```text
+N4 Content catalog
+```
+
+Но фактический статус активного шага:
+
+```text
+ACTIVE_BLOCKED
+```
+
+Причина блокировки:
+
+```text
+Нельзя принимать N4, пока не восстановлен ложно закрытый N3.
+Также не выполнены требования самого N4:
+- нет ожидаемых тестов контента;
+- нет согласованных namespace;
+- MonsterContent.cs и TowerContent.cs находятся не в ожидаемой папке Content;
+- дублируются константы между разными источниками.
+```
+
+---
+
+## 2. Зафиксированная основа проекта
+
+Заявлены допущения `A1-A21`.
+
+Информационный пробел:
+
+```text
+Полный список допущений A1-A21 в предоставленном срезе отсутствует.
+Требуется отдельный документ требований или приложение к DAG.
+```
+
+Ключевые решения:
+
+| Область | Решение |
+|---|---|
+| Платформа | Windows |
+| Стек | `.NET 10`, WPF |
+| Окно | фиксированное, `1280x720` |
+| Карты | 3 карты в первой версии |
+| Доступ к картам | все карты доступны сразу |
+| Путь монстров | фиксированный |
+| Размещение башен | свободное |
+| Блокировка пути башнями | запрещена |
+| Классы монстров | `Normal`, `Fast`, `Tank`, `Flying` |
+| Boss | не используется |
+| Волны | случайное количество от 3 до 20 |
+| Рост сложности | через бюджет волны и уровень монстров |
+| Скорость игры | `x1 / x2 / x4` |
+| Клавиша скорости | `F` |
+| Прокачка | линейная, 3 уровня |
+| Продажа башен | разрешена |
+| Жизни базы | 20 |
+| Поражение | при 0 жизней |
+| Настройки | звук, громкость, скорость по умолчанию, показ радиуса башни |
+| Сохранение прогресса | нет |
+| Сохранение настроек | локально |
+| Анимация | процедурные заглушки |
+| Звук | минимальные звуковые заглушки |
+| Редакторы | вынесены в этап C |
+| Автосборка | локальный скрипт; CI позже |
+
+---
+
+## 3. Легенда статусов
+
+| Статус | Значение |
+|---|---|
+| `DONE` | шаг выполнен, принят и не имеет блокирующих пробелов |
+| `DONE_WITH_GAPS` | шаг в целом выполнен, но имеет задокументированные пробелы |
+| `PARTIAL` | часть артефактов шага отсутствует или не подтверждена |
+| `REOPEN` | шаг ранее считался закрытым, но переоткрыт из-за отсутствия доказательств |
+| `ACTIVE` | шаг находится в работе |
+| `ACTIVE_BLOCKED` | шаг формально активен, но не может быть принят до закрытия блокирующих условий |
+| `PENDING` | шаг еще не начат |
+| `PENDING_NON_ACCEPTED` | шаг не начат официально, но в коде уже есть преждевременные артефакты, которые не принимаются |
+| `BLOCKED` | шаг заблокирован внешними данными или архитектурным решением |
+
+---
+
+## 4. Граф работ
+
+```mermaid
+graph TD
+
+N0["N0 Requirements v2 freeze"] --> N1["N1 Architecture/.NET10 skeleton"]
+N1 --> N2["N2 Domain contracts"]
+N0 --> N3["N3 Multiple map model"]
+N2 --> N3
+N0 --> N4["N4 Content catalog"]
+N2 --> N4
+N2 --> N5["N5 Mechanics/status contracts"]
+N2 --> N6["N6 Simulation engine"]
+N3 --> N6
+N4 --> N6
+N5 --> N6
+N4 --> N7["N7 Random wave generator"]
+N5 --> N7
+N6 --> N7
+N1 --> N8["N8 Rendering/animation shell"]
+N6 --> N8
+N6 --> N9["N9 Input/controller"]
+N8 --> N9
+N3 --> N10["N10 UI/HUD/menus/map select"]
+N6 --> N10
+N7 --> N10
+N8 --> N10
+N9 --> N10
+N1 --> N11["N11 Audio system"]
+N10 --> N11
+N1 --> N12["N12 Settings persistence"]
+N10 --> N12
+N3 --> N13["N13 Map editor MVP"]
+N10 --> N13
+N4 --> N14["N14 Wave editor MVP"]
+N7 --> N14
+N10 --> N14
+N4 --> N15["N15 Balance tuning"]
+N7 --> N15
+N10 --> N15
+N6 --> N16["N16 QA/perf/regression"]
+N7 --> N16
+N9 --> N16
+N10 --> N16
+N11 --> N16
+N12 --> N16
+N13 --> N16
+N14 --> N16
+N15 --> N16
+N1 --> N17["N17 CI/build automation"]
+N16 --> N17
+N16 --> N18["N18 Acceptance/release candidate"]
+N17 --> N18
+
+classDef conditional fill:#c9f2ff,stroke:#0c5460,color:#000;
+classDef partial fill:#ffe8cc,stroke:#8a4b08,color:#000;
+classDef reopen fill:#f8d7da,stroke:#721c24,color:#000;
+classDef activeblocked fill:#fff3cd,stroke:#856404,color:#000;
+classDef nonaccepted fill:#e2e3e5,stroke:#383d41,color:#000;
+classDef pending fill:#eef1f4,stroke:#6c757d,color:#000;
+
+class N0,N2 conditional;
+class N1 partial;
+class N3 reopen;
+class N4 activeblocked;
+class N5,N6,N7 nonaccepted;
+class N8,N9,N10,N11,N12,N13,N14,N15,N16,N17,N18 pending;
+```
+
+---
+
+## 5. Таблица узлов
+
+| ID | Шаг | Статус | Зависит от | Краткий результат после ревизии |
+|---|---|---|---|---|
+| `N0` | Requirements v2 freeze | `DONE_WITH_GAPS` | — | Требования заявлены, но полный список `A1-A21` отсутствует |
+| `N1` | Architecture/.NET10 skeleton | `PARTIAL` | `N0` | Решение, проекты и окно `1280x720` есть; базовый game loop в срезе не подтвержден |
+| `N2` | Domain contracts | `DONE_WITH_GAPS` | `N1` | Контракты есть; отсутствуют namespace, часть инвариантов и тестов |
+| `N3` | Multiple map model | `REOPEN` | `N0`, `N2` | Модель карт есть; нет 3 карт и тестов размещения |
+| `N4` | Content catalog | `ACTIVE_BLOCKED` | `N0`, `N2` | Контент частично есть; нет тестов, согласованных namespace и ожидаемой структуры |
+| `N5` | Mechanics/status contracts | `PENDING_NON_ACCEPTED` | `N2` | Есть преждевременные артефакты, но шаг официально не принимается |
+| `N6` | Simulation engine | `PENDING_NON_ACCEPTED` | `N2`, `N3`, `N4`, `N5` | Есть преждевременный движок, но есть критические дефекты и нет тестов |
+| `N7` | Random wave generator | `PENDING_NON_ACCEPTED` | `N4`, `N5`, `N6` | Есть преждевременный генератор, но ADR неполный |
+| `N8` | Rendering/animation shell | `PENDING` | `N1`, `N6` | Не начат; дополнительно заблокирован до восстановления `N1` game loop |
+| `N9` | Input/controller | `PENDING` | `N6`, `N8` | Не начат |
+| `N10` | UI/HUD/menus/map select | `PENDING` | `N3`, `N6`, `N7`, `N8`, `N9` | Не начат |
+| `N11` | Audio system | `PENDING` | `N1`, `N10` | Не начат |
+| `N12` | Settings persistence | `PENDING` | `N1`, `N10` | Не начат |
+| `N13` | Map editor MVP | `PENDING` | `N3`, `N10` | Не начат |
+| `N14` | Wave editor MVP | `PENDING` | `N4`, `N7`, `N10` | Не начат |
+| `N15` | Balance tuning | `PENDING` | `N4`, `N7`, `N10` | Не начат |
+| `N16` | QA/perf/regression | `PENDING` | многие узлы | Не начат |
+| `N17` | CI/build automation | `PENDING` | `N1`, `N16` | Не начат |
+| `N18` | Acceptance/release candidate | `PENDING` | `N16`, `N17` | Не начат |
+
+---
+
+## 6. Детализация шагов после ревизии
+
+### `N0` — Requirements v2 freeze
+
+Статус:
+
+```text
+DONE_WITH_GAPS
+```
+
+Что подтверждено:
+
+- зафиксированы ключевые решения по платформе, окну, картам, монстрам, башням, волнам, настройкам;
+- редакторы вынесены в этап C;
+- есть ADR по базовым механикам и симуляции.
+
+Что не подтверждено:
+
+- полный список допущений `A1-A21` отсутствует;
+- нет отдельного трассируемого требования для каждой записи `A1`–`A21`.
+
+Восстановительное действие:
+
+```text
+Создать или восстановить документ требований, содержащий полный список A1-A21.
+```
+
+---
+
+### `N1` — Architecture/.NET10 skeleton
+
+Статус:
+
+```text
+PARTIAL
+```
+
+Что подтверждено:
+
+- решение существует;
+- есть проекты:
+  - `Td.Core`;
+  - `Td.Wpf`;
+  - `Td.Core.Tests`;
+- WPF-окно зафиксировано размером `1280x720`;
+- целевой фреймворк указан.
+
+Что не подтверждено в предоставленном срезе:
+
+- фактическая реализация базового game loop;
+- аккумулятор времени;
+- фиксированный шаг `1/75`;
+- ограничение числа догоняющих шагов;
+- интеграция с симуляцией или хотя бы заглушкой симуляции.
+
+Восстановительное действие:
+
+```text
+Реализовать минимальный fixed timestep game loop в WPF-хосте.
+Либо явно зафиксировать, что шаг переносится и не блокирует контентные шаги,
+но должен быть закрыт до N8.
+```
+
+---
+
+### `N2` — Domain contracts
+
+Статус:
+
+```text
+DONE_WITH_GAPS
+```
+
+Что подтверждено:
+
+- добавлены доменные сущности и интерфейсы;
+- есть базовые контракты монстров, башен, карт, волн и состояния игры;
+- есть часть тестов инвариантов.
+
+Что не подтверждено или требует доработки:
+
+- отсутствуют namespace в `Td.Core`;
+- `TowerType.Levels` не имеет явного инварианта непустого списка уровней;
+- нет тестов ключевых инвариантов `GameState`;
+- документация `IPlacementValidator` расходится с реализацией;
+- не реализованы сервисные контракты, если они требуются для завершения доменной логики.
+
+Восстановительное действие:
+
+```text
+Закрыть пробелы по namespace, инвариантам и документации до перехода к N5.
+```
+
+---
+
+### `N3` — Multiple map model
+
+Статус:
+
+```text
+REOPEN
+```
+
+Что подтверждено:
+
+- есть модель карты:
+  - `MapDefinition`;
+  - `IMapCatalog`;
+  - `StaticMapCatalog`;
+  - `IPathGeometry`;
+  - `PathGeometry`;
+  - `IPlacementValidator`;
+  - `MapPlacementValidator`.
+
+Что не подтверждено:
+
+- нет 3 конкретных тестовых карт;
+- нет тестов каталога карт;
+- нет тестов валидации размещения башен;
+- документация `IPlacementValidator` описывает правила, которые не соответствуют реализации.
+
+Обязательные критерии восстановления:
+
+```text
+1. Добавлены 3 тестовые карты.
+2. Добавлены тесты каталога карт.
+3. Добавлены тесты валидации размещения.
+4. Исправлена документация интерфейса размещения.
+5. dotnet build проходит.
+6. dotnet test проходит.
+```
+
+Ожидаемый рапорт:
+
+```text
+DONE N3: 3 maps added, map catalog tests ok, placement validation tests ok
+```
+
+---
+
+### `N4` — Content catalog
+
+Статус:
+
+```text
+ACTIVE_BLOCKED
+```
+
+Что подтверждено:
+
+- есть контент монстров;
+- есть контент башен;
+- есть экономика;
+- есть правила генерации волн;
+- в коде присутствуют 10 монстров, 4 башни и 3 уровня прокачки у каждой башни.
+
+Что не выполнено:
+
+- нет ожидаемых тестов контента;
+- `MonsterContent.cs` находится в `Domain/Monsters`, а не в `Content`;
+- `TowerContent.cs` находится в `Domain/Towers`, а не в `Content`;
+- нет согласованных namespace;
+- дублируются константы:
+  - `MechanicsLimits.BaseLives` и `EconomyContent.BaseLives`;
+  - `MechanicsLimits.MinWaveCount/MaxWaveCount` и `WaveGenerationRules.MinWaveCount/MaxWaveCount`.
+
+Входные критерии разблокировки `N4`:
+
+```text
+1. N3 восстановлен и принят.
+2. Известные дефекты зафиксированы в docs/known-defects.md.
+3. dotnet build проходит.
+4. dotnet test проходит.
+```
+
+Состав завершения `N4`:
+
+```text
+1. Перенести MonsterContent.cs в src/Td.Core/Content/.
+2. Перенести TowerContent.cs в src/Td.Core/Content/.
+3. Ввести согласованные namespace:
+   - Td.Core.Domain.Common
+   - Td.Core.Domain.Game
+   - Td.Core.Domain.Maps
+   - Td.Core.Domain.Monsters
+   - Td.Core.Domain.Towers
+   - Td.Core.Domain.Waves
+   - Td.Core.Content
+   - Td.Core.Services.Audio
+   - Td.Core.Services.Settings
+   - Td.Core.Simulation
+4. Добавить тесты целостности контента.
+5. Устранить дублирование констант.
+6. Подтвердить уникальные Id.
+7. Подтвердить корректные диапазоны параметров.
+8. Прогнать dotnet build и dotnet test.
+```
+
+Ожидаемые файлы:
+
+```text
+src/Td.Core/Content/ContentCatalog.cs
+src/Td.Core/Content/MonsterContent.cs
+src/Td.Core/Content/TowerContent.cs
+src/Td.Core/Content/EconomyContent.cs
+src/Td.Core/Content/WaveGenerationRules.cs
+```
+
+Ожидаемые тесты:
+
+```text
+tests/Td.Core.Tests/Content/MonsterContentTests.cs
+tests/Td.Core.Tests/Content/TowerContentTests.cs
+tests/Td.Core.Tests/Content/EconomyContentTests.cs
+tests/Td.Core.Tests/Content/WaveGenerationRulesTests.cs
+```
+
+Критерии завершения:
+
+```text
+- ровно 10 монстров;
+- ровно 4 башни;
+- ровно 3 уровня прокачки у каждой башни;
+- уникальные Id;
+- корректные диапазоны параметров;
+- dotnet build проходит;
+- dotnet test проходит;
+- числа являются плейсхолдерами до этапа балансировки.
+```
+
+Важная техническая заметка:
+
+```text
+Перед завершением N4 необходимо убедиться, что пространства имен в домене и контенте согласованы.
+Например:
+- Td.Core.Domain.Monsters
+- Td.Core.Domain.Towers
+- Td.Core.Content
+```
+
+Ожидаемый рапорт:
+
+```text
+DONE N4: content catalog created, 10 monsters, 4 towers, 3 upgrade levels, namespaces aligned, tests ok
+```
+
+---
+
+## 7. Восстановительные ворота
+
+Вводятся обязательные ворота качества.
+
+### Gate `G1`: восстановление `N3`
+
+```text
+Нельзя принимать N4, пока N3 не восстановлен.
+```
+
+Причина:
+
+```text
+N3 был помечен как DONE без 3 карт и тестов размещения.
+```
+
+---
+
+### Gate `G2`: завершение `N4`
+
+```text
+Нельзя открывать N5, пока N4 не закрыт.
+```
+
+Причина:
+
+```text
+N5 формально зависит от N2, но фактически использует контентные и доменные контракты,
+которые должны быть стабилизированы на N4.
+```
+
+---
+
+### Gate `G3`: преждевременные артефакты `N5`, `N6`, `N7`
+
+```text
+Артефакты N5, N6, N7 существуют, но не принимаются.
+Их нельзя использовать как основание для перехода к следующим шагам.
+```
+
+Обязательное условие:
+
+```text
+Перед официальным открытием N5/N6/N7 их статусы должны быть пересмотрены,
+а существующие артефакты либо приняты, либо изолированы, либо переделаны.
+```
+
+---
+
+### Gate `G4`: критический дефект победы и спавна
+
+```text
+Нельзя принимать N6, пока не устранен дефект преждевременной победы
+и не введено явное состояние очереди спавна.
+```
+
+Связанные дефекты:
+
+```text
+- GameState.EvaluateVictoryCondition не учитывает очередь спавна;
+- последняя волна может завершиться победой до фактического спавна;
+- TotalWaves и количество волн в движке могут рассинхронизироваться.
+```
+
+Требуется отдельный ADR:
+
+```text
+docs/decisions/0005-victory-spawn-state.cmake
+```
+
+---
+
+### Gate `G5`: game loop для `N8`
+
+```text
+Нельзя начинать N8, пока не реализован базовый fixed timestep game loop.
+```
+
+Причина:
+
+```text
+В предоставленном срезе есть только ADR 0001, но нет фактической реализации.
+```
+
+---
+
+## 8. Следующие шаги после `N4`
+
+После успешного завершения `N4` планируется переход к:
+
+```text
+N5 Mechanics/status contracts
+```
+
+Но перед этим нужно:
+
+```text
+1. Подтвердить, что артефакты будущего N5 не вносят неконтролируемых изменений.
+2. Проверить, что ADR 0002 согласован с фактическим кодом.
+3. Проверить, что доменные механики не опережают статусы DAG.
+```
+
+На `N5` будут уточнены и формализованы:
+
+- урон;
+- броня;
+- бронебойность;
+- замедление;
+- сопротивление замедлению;
+- полет;
+- площадной урон;
+- статусы.
+
+---
+
+## 9. Топологический порядок
+
+Базовый порядок выполнения:
+
+```text
+N0
+→ N1
+→ N2
+→ N3, N4
+→ N5
+→ N6
+→ N7
+→ N8
+→ N9
+→ N10
+→ N11, N12
+→ N13, N14
+→ N15
+→ N16
+→ N17
+→ N18
+```
+
+Фактический восстановительный порядок:
+
+```text
+N0 DONE_WITH_GAPS
+N1 PARTIAL
+N2 DONE_WITH_GAPS
+N3 REOPEN
+N4 ACTIVE_BLOCKED
+N5 PENDING_NON_ACCEPTED
+N6 PENDING_NON_ACCEPTED
+N7 PENDING_NON_ACCEPTED
+N8 PENDING
+N9 PENDING
+N10 PENDING
+N11 PENDING
+N12 PENDING
+N13 PENDING
+N14 PENDING
+N15 PENDING
+N16 PENDING
+N17 PENDING
+N18 PENDING
+```
+
+Восстановительный порядок:
+
+```text
+1. Зафиксировать известные дефекты.
+2. Актуализировать DAG.
+3. Восстановить требования или явно пометить пробел по A1-A21.
+4. Восстановить N3:
+   - 3 карты;
+   - тесты карт;
+   - тесты размещения;
+   - исправление документации интерфейса размещения.
+5. Закрыть N4:
+   - перенос контента;
+   - namespace;
+   - контентные тесты;
+   - устранение дублирования констант.
+6. Только после этого переоценивать артефакты N5, N6, N7.
+```
+
+---
+
+## 10. Список ребер графа
+
+```text
+N0 -> N1
+N1 -> N2
+N0 -> N3
+N2 -> N3
+N0 -> N4
+N2 -> N4
+N2 -> N5
+N2 -> N6
+N3 -> N6
+N4 -> N6
+N5 -> N6
+N4 -> N7
+N5 -> N7
+N6 -> N7
+N1 -> N8
+N6 -> N8
+N6 -> N9
+N8 -> N9
+N3 -> N10
+N6 -> N10
+N7 -> N10
+N8 -> N10
+N9 -> N10
+N1 -> N11
+N10 -> N11
+N1 -> N12
+N10 -> N12
+N3 -> N13
+N10 -> N13
+N4 -> N14
+N7 -> N14
+N10 -> N14
+N4 -> N15
+N7 -> N15
+N10 -> N15
+N6 -> N16
+N7 -> N16
+N9 -> N16
+N10 -> N16
+N11 -> N16
+N12 -> N16
+N13 -> N16
+N14 -> N16
+N15 -> N16
+N1 -> N17
+N16 -> N17
+N16 -> N18
+N17 -> N18
+```
+
+---
+
+## 11. Критический путь
+
+Ориентировочный критический путь после восстановительной ревизии:
+
+```text
+N0
+→ N1
+→ N2
+→ N3
+→ N4
+→ N5
+→ N6
+→ N8
+→ N9
+→ N10
+→ N15
+→ N16
+→ N18
+```
+
+Волновой генератор `N7`, звук `N11`, настройки `N12` и редакторы `N13/N14` могут частично развиваться параллельно, но только после снятия соответствующих блокировок.
+
+---
+
+## 12. Этапы проекта
+
+### Этап A — Core Playable
+
+Цель: играбельный каркас без редакторов.
+
+Сюда входят:
+
+```text
+N0
+N1
+N2
+N3
+N4
+N5
+N6
+N7
+N8
+N9
+N10
+```
+
+Текущее состояние:
+
+```text
+этап в восстановлении
+полностью закрыто: 0
+условно закрыто: N0, N2
+частично: N1
+переоткрыто: N3
+активно, но заблокировано: N4
+преждевременные артефакты: N5, N6, N7
+```
+
+---
+
+### Этап B — Full Game
+
+Цель: довести игру до принятых требований.
+
+Сюда входят:
+
+```text
+N11
+N12
+N15
+```
+
+Текущее состояние:
+
+```text
+не начат
+```
+
+---
+
+### Этап C — Editors and Hardening
+
+Цель: редакторы, стабилизация, автосборка, приемка.
+
+Сюда входят:
+
+```text
+N13
+N14
+N16
+N17
+N18
+```
+
+Текущее состояние:
+
+```text
+не начат
+```
+
+---
+
+## 13. Известные риски
+
+| Риск | Уровень | Комментарий |
+|---|---:|---|
+| Пространства имен в `Content` и `Domain` могут расходиться | высокий | риск уже частично реализовался: в срезе отсутствуют согласованные namespace |
+| Плейсхолдерный баланс | средний | тюнинг будет на `N15` |
+| Генерация случайных волн может ломать рост сложности | высокий | нужно тестировать на `N7` |
+| WPF-производительность | средний | проверить при отрисовке монстров, башен и эффектов |
+| Редакторы могут сильно расширить скоуп | высокий | они вынесены в этап C |
+| `.NET 10` окружение | низкий/средний | требует подтверждения сборкой |
+| Ложные статусы закрытых шагов | высокий | выявлено в ходе восстановительной ревизии |
+| Преждевременные артефакты `N5/N6/N7` | высокий | существуют в коде, но не приняты |
+| Критический дефект победы/спавна | критический | требует отдельного ADR и исправления до принятия `N6` |
+| Отсутствие полного списка `A1-A21` | средний | блокирует полную трассируемость требований |
+
+---
+
+## 14. Рекомендуемый порядок работы прямо сейчас
+
+Сейчас нельзя продолжать разработку новых функциональных шагов.
+
+Немедленный порядок:
+
+```text
+1. Принять docs/known-defects.md.
+2. Обновить текущий DAG.
+3. Либо восстановить полный список A1-A21, либо явно зафиксировать пробел.
+4. Восстановить N3:
+   - добавить 3 тестовые карты;
+   - добавить тесты каталога карт;
+   - добавить тесты валидации размещения;
+   - исправить документацию IPlacementValidator.
+5. Закрыть N4:
+   - перенести MonsterContent.cs и TowerContent.cs в Content;
+   - ввести namespace;
+   - добавить контентные тесты;
+   - устранить дублирование констант.
+6. Только после этого переоценивать переход к N5.
+```
+
+Обязательные команды после каждого восстановительного шага:
+
+```bash
+dotnet build
+dotnet test
+```
+
+Ожидаемые рапорты:
+
+```text
+DONE N3: 3 maps added, map catalog tests ok, placement validation tests ok
+DONE N4: content catalog created, 10 monsters, 4 towers, 3 upgrade levels, namespaces aligned, tests ok
+```
+
+После этого детализируется:
+
+```text
+N5 Mechanics/status contracts
+```
+
+но только при выполнении восстановительных ворот.
+~~~
+
+~~~docs\known-defects.cmake
+
+# Known Defects / Recovery Ledger
+
+Назначение:
+единый реестр дефектов, информационных пробелов и признаков контекстного долга,
+выявленных при аудите проекта TowerDefense относительно `docs/dag.cmake`,
+ADR и фактического кода.
+
+Правила:
+
+1. Каждый дефект имеет:
+   - идентификатор;
+   - область;
+   - описание;
+   - доказательство/источник;
+   - серьезность;
+   - шаг исправления;
+   - статус.
+
+2. Дефекты не исправляются вне их владельца-шага,
+   если исправление не требуется для стабилизации сборки или тестов.
+
+3. Если для исправления недостаточно данных,
+   дефект или шаг помечается как `BLOCKED`/`NEEDS_INPUT`.
+
+4. Артефакты будущих шагов, уже присутствующие в коде,
+   не считаются принятыми, пока соответствующий узел основного `DAG`
+   не будет официально открыт и закрыт.
+
+---
+
+## 1. Реестр дефектов
+
+| ID | Область | Описание | Доказательство | Серьезность | Шаг исправления | Статус |
+|---|---|---|---|---:|---|---|
+| `KD-001` | `DAG` | Статусы основного `DAG` не отражают фактическое состояние проекта | `DAG` утверждает `DONE: N0, N1, N2, N3` и `NEXT: N4`, но в коде уже есть артефакты `N5/N6/N7`, а критерии `N3/N4` не подтверждены | High | `R02` | Open |
+| `KD-002` | `N3` | В предоставленном срезе нет 3 тестовых карт | `DAG` требует 3 карты для `N3`, но в коде нет фабрики/каталога конкретных карт | High | `R05` | Open |
+| `KD-003` | `N3` | Нет тестов каталога карт и валидации размещения | Присутствует только `PathGeometryTests`; отсутствуют `StaticMapCatalogTests` и `MapPlacementValidatorTests` | High | `R06`, `R07` | Open |
+| `KD-004` | `Domain/Maps` | XML-документация `IPlacementValidator` не соответствует реализации | Комментарий описывает `position.X in [0, map.Width]`, `map.PathBufferRadius` без учета радиуса башни и несуществующий `MechanicsLimits.MinTowerDistance`; реализация учитывает `FootprintRadius` | High | `R04` | Open |
+| `KD-005` | Architecture | В `Td.Core` отсутствуют `namespace`, хотя риск расхождения пространств имен зафиксирован в `DAG` | Все предоставленные `.cs`-файлы `Td.Core` находятся в global namespace | High | `R10`-`R22` | Open |
+| `KD-006` | `N4` | `MonsterContent.cs` и `TowerContent.cs` находятся не в ожидаемой папке `Content` | `DAG` ожидает `src/Td.Core/Content/MonsterContent.cs` и `src/Td.Core/Content/TowerContent.cs`; фактически файлы лежат в `Domain/Monsters` и `Domain/Towers` | Medium | `R08`, `R09` | Open |
+| `KD-007` | `N4` | Отсутствуют тесты целостности контента | `DAG` требует `MonsterContentTests`, `TowerContentTests`, `EconomyContentTests`, `WaveGenerationRulesTests`; файлы отсутствуют | High | `R23`-`R27` | Open |
+| `KD-008` | Constants | Дублируются константы жизней и количества волн | `MechanicsLimits.BaseLives`, `EconomyContent.BaseLives`; `MechanicsLimits.MinWaveCount/MaxWaveCount`, `WaveGenerationRules.MinWaveCount/MaxWaveCount` | Medium | `R28`, `R29` | Open |
+| `KD-009` | `Domain/Towers` | `TowerType.Levels` не защищает инвариант непустого списка уровней | `TowerState.CurrentLevelDefinition` использует `Type.Levels[Level - 1]`; при пустом `Levels` возможна ошибка времени выполнения | Medium | `R30` | Open |
+| `KD-010` | `GameState` | Проверка победы не учитывает очередь спавна | `GameState.EvaluateVictoryCondition` опирается только на `CurrentWave`, `TotalWaves` и список монстров | Critical | `R32`, `R33` | Open |
+| `KD-011` | `Simulation` | Возможна преждевременная победа при старте последней волны | `GameSimulationEngine.StartNextWave` вызывает `state.StartNextWave()` до фактического спавна волны; `GameState.EvaluateVictoryCondition` может сразу установить `Victory` | Critical | `R32`, `R33`, `R34` | Open |
+| `KD-012` | `Simulation` | Нет синхронизации между `GameState.TotalWaves` и количеством волн в движке | `GameSimulationEngine` использует `Math.Min(state.TotalWaves, _waves.Count)`; при рассинхронизации игра может зависнуть или использовать не все волны | High | `R34` | Open |
+| `KD-013` | Documentation | `ADR 0004` неполный и имеет неоднозначный статус | Документ обрывается на правиле количества волн; статус указан как `Принято / Предложено к подтверждению` | High | `R31` | Open |
+| `KD-014` | Requirements | Нет полного списка допущений `A1-A21` | `dag.cmake` ссылается на `A1-A21`, но не раскрывает их | Medium | `R03` | Open |
+| `KD-015` | `N1` | В предоставленном срезе нет реализации базового game loop | ADR `0001` фиксирует fixed timestep, но в `Td.Wpf` нет кода аккумулятора, `CompositionTarget.Rendering` или хоста симуляции | High | `R35` | Open |
+| `KD-016` | Process | Нет подтверждения `dotnet build` и `dotnet test` | Критерии `DAG` требуют успешной сборки и тестов, но лога/подтверждения в срезе нет | Medium | Process / `R02` | Open |
+
+---
+
+## 2. Информационные пробелы
+
+| ID | Область | Описание | Влияет на | Требуемое действие |
+|---|---|---|---|---|
+| `IG-001` | Requirements | Отсутствует полный список `A1-A21` | `R03` | Получить список или разрешить черновую реконструкцию |
+| `IG-002` | Maps | Нет геометрии 3 тестовых карт | `R05`, `R06`, `R07` | Утвердить карты или разрешить временные test-only карты |
+| `IG-003` | Content | Не зафиксированы точные допустимые диапазоны контентных параметров | `R23`-`R26` | Утвердить правила валидации перед закрытием `N4` |
+| `IG-004` | Simulation | Не выбран источник истины для проверки победы с учетом спавна | `R32`, `R33`, `R34` | Принять ADR: `GameState` или `SimulationEngine` учитывает очередь спавна |
+| `IG-005` | Composition | Нет описания корня композиции | `R34`, future `N6/N9` | Зафиксировать, кто создает `GameState`, движок, карты и волны |
+| `IG-006` | Build | Нет фактического результата сборки и тестов | все шаги | Выполнить `dotnet build` и `dotnet test` перед принятием шагов |
+| `IG-007` | WPF | Не выбрано место реализации game loop | `R35` | Решить: `MainWindow`, отдельный `GameLoopHost` или иной хост |
+
+---
+
+## 3. Признаки гнилого контекста
+
+| ID | Признак | Пояснение |
+|---|---|---|
+| `RC-001` | Статусный разрыв | `DAG` говорит `N4 ACTIVE`, но код уже содержит артефакты `N5/N6/N7` |
+| `RC-002` | Ложный `DONE` | `N3` помечен `DONE`, но нет 3 карт и тестов размещения |
+| `RC-003` | Структурный разрыв | Ожидаемые файлы `N4` не совпадают с фактическим расположением контента |
+| `RC-004` | Документационный разрыв | Комментарии интерфейсов описывают правила, которых нет в коде |
+| `RC-005` | ADR-разрыв | `ADR 0004` существует, но неполон и имеет противоречивый статус |
+| `RC-006` | Константный разрыв | Одни и те же правила продублированы в разных статических классах |
+| `RC-007` | Тестовый разрыв | Заявленные критерии завершения не защищены тестами |
+
+---
+
+## 4. Отложенные наблюдения
+
+Эти пункты не блокируют текущее восстановление `N3/N4`,
+но должны быть учтены на соответствующих будущих этапах.
+
+| ID | Область | Наблюдение | Будущий владелец |
+|---|---|---|---|
+| `OBS-001` | Economy | `ISellRefundPolicy` объявлен, но не реализован | `N9` / tower economy service |
+| `OBS-002` | Economy | `TowerState.InitializeInvestment` нигде не вызывается | `N9` / tower placement service |
+| `OBS-003` | `GameState` | `AddTower` не списывает золото и не вызывает `IPlacementValidator` | `N9` / domain service |
+| `OBS-004` | Audio | `IAudioService` объявлен, но не реализован | `N11` |
+| `OBS-005` | Settings | `ISettingsService` объявлен, но не реализован | `N12` |
+| `OBS-006` | Settings | `GameSettings.Volume` не имеет явного диапазона | `N12` |
+| `OBS-007` | Waves | `RandomWaveGenerator.GenerateAllWaves` отсутствует в интерфейсе `IRandomWaveGenerator` | `N7` / контракт генератора |
+| `OBS-008` | Towers | `TowerState.Position` имеет `set`, хотя башни не должны перемещаться | `N9` / domain hardening |
+| `OBS-009` | Composition | Нет явного места, где синхронизируются `TotalWaves`, волны и движок | `N6` / composition root |
+
+---
+
+## 5. Политика исправления
+
+1. Сначала устраняется контекстный долг:
+   - реестр дефектов;
+   - актуализация `DAG`;
+   - восстановление требований.
+
+2. Затем восстанавливаются ложно закрытые шаги:
+   - `N3`: карты, каталог, валидация, тесты;
+   - `N4`: структура контента, namespace, тесты целостности.
+
+3. Критические дефекты симуляции исправляются только после:
+   - фиксации правил в отдельном ADR;
+   - выбора владельца состояния спавна;
+   - закрытия или явной изоляции преждевременных артефактов `N6`.
+
+4. Все изменения должны сопровождаться:
+   - обновлением документации;
+   - тестами;
+   - успешным `dotnet build`;
+   - успешным `dotnet test`.
+
+---
+
+## 6. Соответствие дефектов и восстановительных шагов
+
+| Дефект / пробел | Шаг восстановления |
+|---|---|
+| `KD-001`, `IG-006`, `RC-001` | `R02` |
+| `KD-014`, `IG-001` | `R03` |
+| `KD-004`, `RC-004` | `R04` |
+| `KD-002`, `IG-002` | `R05` |
+| `KD-003`, `RC-007` | `R06`, `R07` |
+| `KD-006`, `RC-003` | `R08`, `R09` |
+| `KD-005`, `RC-005` | `R10`-`R22` |
+| `KD-007`, `IG-003` | `R23`-`R27` |
+| `KD-008`, `RC-006` | `R28`, `R29` |
+| `KD-009` | `R30` |
+| `KD-013` | `R31` |
+| `KD-010`, `KD-011`, `KD-012`, `IG-004` | `R32`, `R33`, `R34` |
+| `KD-015`, `IG-007` | `R35` |
+| Финальная нормализация | `R36` |
+
+---
+
+## 7. Критерий принятия этого документа
+
+`docs/known-defects.md` считается принятым, если:
+
+```text
+1. Зафиксированы все известные дефекты аудита.
+2. Зафиксированы информационные пробелы.
+3. Зафиксированы признаки гнилого контекста.
+4. Для каждого дефекта указан владелец-шаг.
+5. Документ не изменяет код и не подменяет основной DAG.
+```
+-
+~~~
+
 ~~~docs\decisions\0001-game-loop.cmake
 
 # ADR 0001: Game Loop и Фиксированный Шаг Симуляции
@@ -1048,6 +2085,62 @@ while accumulator >= fixedDeltaTime:
 [WaveGenerationRules.MinWaveCount, WaveGenerationRules.MaxWaveCount]
 ~~~
 
+~~~src\Td.Core\Namespaces.cs
+// ---------------------------------------------------------------------------
+// Каркасный файл для безопасной миграции на целевые пространства имён (шаг R10).
+//
+// Файл объявляет пустые пространства имён, чтобы:
+//   1. global using в проекте и тестах (шаги R11, R12) компилировались
+//      до фактического переноса типов;
+//   2. шаги R13-R22 могли переносить типы по одному модулю,
+//      не ломая сборку на каждом файле.
+//
+// Файл не содержит типов и не влияет на поведение программы.
+// После завершения миграции всех модулей (R13-R22) файл может быть удалён,
+// так как все пространства имён будут объявлены в реальных файлах.
+// ---------------------------------------------------------------------------
+
+namespace Td.Core.Domain.Common
+{
+}
+
+namespace Td.Core.Domain.Game
+{
+}
+
+namespace Td.Core.Domain.Maps
+{
+}
+
+namespace Td.Core.Domain.Monsters
+{
+}
+
+namespace Td.Core.Domain.Towers
+{
+}
+
+namespace Td.Core.Domain.Waves
+{
+}
+
+namespace Td.Core.Content
+{
+}
+
+namespace Td.Core.Services.Audio
+{
+}
+
+namespace Td.Core.Services.Settings
+{
+}
+
+namespace Td.Core.Simulation
+{
+}
+~~~
+
 ~~~src\Td.Core\Td.Core.csproj
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
@@ -1086,6 +2179,332 @@ public static class EconomyContent
     /// Плейсхолдер до балансировки.
     /// </summary>
     public const int MonsterLeakDamage = 1;
+}
+~~~
+
+~~~src\Td.Core\Content\MonsterContent.cs
+using System.Collections.Generic;
+
+public static class MonsterContent
+{
+    public static IReadOnlyList<MonsterType> All { get; } = new List<MonsterType>
+    {
+        new MonsterType
+        {
+            Id = "monster_t1_grunt",
+            Name = "Grunt",
+            Class = MonsterClass.Normal,
+            MaxHp = 70,
+            Speed = 60.0,
+            Armor = 0,
+            GoldReward = 8,
+            SlowResistance = 0.0,
+            Tier = 1
+        },
+        new MonsterType
+        {
+            Id = "monster_t1_scout",
+            Name = "Scout",
+            Class = MonsterClass.Fast,
+            MaxHp = 45,
+            Speed = 95.0,
+            Armor = 0,
+            GoldReward = 9,
+            SlowResistance = 0.0,
+            Tier = 1
+        },
+        new MonsterType
+        {
+            Id = "monster_t2_runner",
+            Name = "Runner",
+            Class = MonsterClass.Fast,
+            MaxHp = 80,
+            Speed = 105.0,
+            Armor = 0,
+            GoldReward = 12,
+            SlowResistance = 0.0,
+            Tier = 2
+        },
+        new MonsterType
+        {
+            Id = "monster_t2_brute",
+            Name = "Brute",
+            Class = MonsterClass.Tank,
+            MaxHp = 240,
+            Speed = 42.0,
+            Armor = 3,
+            GoldReward = 16,
+            SlowResistance = 0.05,
+            Tier = 2
+        },
+        new MonsterType
+        {
+            Id = "monster_t3_armored",
+            Name = "Armored",
+            Class = MonsterClass.Normal,
+            MaxHp = 200,
+            Speed = 55.0,
+            Armor = 5,
+            GoldReward = 18,
+            SlowResistance = 0.05,
+            Tier = 3
+        },
+        new MonsterType
+        {
+            Id = "monster_t3_flyer",
+            Name = "Flyer",
+            Class = MonsterClass.Flying,
+            MaxHp = 120,
+            Speed = 82.0,
+            Armor = 1,
+            GoldReward = 15,
+            SlowResistance = 0.0,
+            Tier = 3
+        },
+        new MonsterType
+        {
+            Id = "monster_t4_guard",
+            Name = "Guard",
+            Class = MonsterClass.Tank,
+            MaxHp = 460,
+            Speed = 36.0,
+            Armor = 8,
+            GoldReward = 25,
+            SlowResistance = 0.10,
+            Tier = 4
+        },
+        new MonsterType
+        {
+            Id = "monster_t4_skyflyer",
+            Name = "Skyflyer",
+            Class = MonsterClass.Flying,
+            MaxHp = 170,
+            Speed = 112.0,
+            Armor = 2,
+            GoldReward = 22,
+            SlowResistance = 0.10,
+            Tier = 4
+        },
+        new MonsterType
+        {
+            Id = "monster_t5_juggernaut",
+            Name = "Juggernaut",
+            Class = MonsterClass.Tank,
+            MaxHp = 850,
+            Speed = 30.0,
+            Armor = 12,
+            GoldReward = 40,
+            SlowResistance = 0.20,
+            Tier = 5
+        },
+        new MonsterType
+        {
+            Id = "monster_t5_alpha",
+            Name = "Alpha",
+            Class = MonsterClass.Normal,
+            MaxHp = 380,
+            Speed = 66.0,
+            Armor = 6,
+            GoldReward = 32,
+            SlowResistance = 0.15,
+            Tier = 5
+        }
+    };
+}
+~~~
+
+~~~src\Td.Core\Content\TowerContent.cs
+using System.Collections.Generic;
+
+public static class TowerContent
+{
+    public static IReadOnlyList<TowerType> All { get; } = new List<TowerType>
+    {
+        new TowerType
+        {
+            Id = "tower_gun",
+            Name = "Gun Tower",
+            Kind = TowerKind.Normal,
+            BaseCost = 100,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 12,
+                    Range = 120.0,
+                    CooldownSeconds = 0.60,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 80,
+                    Damage = 20,
+                    Range = 130.0,
+                    CooldownSeconds = 0.55,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 130,
+                    Damage = 32,
+                    Range = 140.0,
+                    CooldownSeconds = 0.50,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+        new TowerType
+        {
+            Id = "tower_frost",
+            Name = "Frost Tower",
+            Kind = TowerKind.Slow,
+            BaseCost = 120,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 6,
+                    Range = 110.0,
+                    CooldownSeconds = 0.80,
+                    SlowPercent = 0.25,
+                    SlowDurationSeconds = 1.5,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 90,
+                    Damage = 9,
+                    Range = 120.0,
+                    CooldownSeconds = 0.75,
+                    SlowPercent = 0.35,
+                    SlowDurationSeconds = 2.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 140,
+                    Damage = 12,
+                    Range = 130.0,
+                    CooldownSeconds = 0.70,
+                    SlowPercent = 0.45,
+                    SlowDurationSeconds = 2.5,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+        new TowerType
+        {
+            Id = "tower_cannon",
+            Name = "Cannon Tower",
+            Kind = TowerKind.Area,
+            BaseCost = 160,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 18,
+                    Range = 130.0,
+                    CooldownSeconds = 1.40,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 45.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 120,
+                    Damage = 28,
+                    Range = 140.0,
+                    CooldownSeconds = 1.30,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 55.0,
+                    ArmorIgnorePercent = 0.0
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 180,
+                    Damage = 40,
+                    Range = 150.0,
+                    CooldownSeconds = 1.20,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 65.0,
+                    ArmorIgnorePercent = 0.0
+                }
+            }
+        },
+        new TowerType
+        {
+            Id = "tower_sniper",
+            Name = "Sniper Tower",
+            Kind = TowerKind.ArmorPiercing,
+            BaseCost = 180,
+            Levels = new List<TowerLevelDefinition>
+            {
+                new TowerLevelDefinition
+                {
+                    Level = 1,
+                    UpgradeCost = 0,
+                    Damage = 25,
+                    Range = 170.0,
+                    CooldownSeconds = 1.60,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.45
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 2,
+                    UpgradeCost = 140,
+                    Damage = 40,
+                    Range = 190.0,
+                    CooldownSeconds = 1.50,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.65
+                },
+                new TowerLevelDefinition
+                {
+                    Level = 3,
+                    UpgradeCost = 200,
+                    Damage = 60,
+                    Range = 210.0,
+                    CooldownSeconds = 1.40,
+                    SlowPercent = 0.0,
+                    SlowDurationSeconds = 0.0,
+                    SplashRadius = 0.0,
+                    ArmorIgnorePercent = 0.85
+                }
+            }
+        }
+    };
 }
 ~~~
 
@@ -1373,6 +2792,131 @@ public sealed class GameState
 }
 ~~~
 
+~~~src\Td.Core\Domain\Maps\DefaultMapCatalog.cs
+/// <summary>
+/// Каталог тестовых карт по умолчанию.
+/// Содержит 3 временные карты для проверки модели нескольких карт,
+/// геометрии пути и валидации размещения башен.
+///
+/// ВАЖНО: геометрия этих карт является временной (test-only placeholder)
+/// и НЕ считается финальным геймдизайном.
+/// Финальная геометрия карт должна быть утверждена отдельно.
+/// </summary>
+public sealed class DefaultMapCatalog : IMapCatalog
+{
+    private readonly IReadOnlyList<MapDefinition> _maps;
+
+    public DefaultMapCatalog()
+    {
+        _maps = CreateDefaultMaps();
+    }
+
+    public IReadOnlyList<MapDefinition> GetMaps() => _maps;
+
+    public MapDefinition? GetMap(string id)
+    {
+        foreach (var map in _maps)
+        {
+            if (map.Id == id)
+            {
+                return map;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Создаёт набор из 3 временных тестовых карт.
+    /// Эти карты предназначены для проверки:
+    /// - модели нескольких карт;
+    /// - геометрии пути;
+    /// - валидации размещения башен;
+    /// - каталога карт.
+    ///
+    /// Карты НЕ являются финальным геймдизайном.
+    /// </summary>
+    public static IReadOnlyList<MapDefinition> CreateDefaultMaps()
+    {
+        return new List<MapDefinition>
+        {
+            CreateMapStraight(),
+            CreateMapCorner(),
+            CreateMapSerpentine()
+        };
+    }
+
+    /// <summary>
+    /// Тестовая карта с прямым горизонтальным путём через центр экрана.
+    /// Путь: (0, 360) → (1280, 360)
+    /// </summary>
+    private static MapDefinition CreateMapStraight()
+    {
+        return new MapDefinition
+        {
+            Id = "map_test_straight",
+            Name = "Test Map: Straight",
+            Width = 1280,
+            Height = 720,
+            PathBufferRadius = 48,
+            Path = new List<Point2D>
+            {
+                new Point2D(0, 360),
+                new Point2D(1280, 360)
+            }
+        };
+    }
+
+    /// <summary>
+    /// Тестовая карта с Г-образным путём.
+    /// Путь: (0, 120) → (640, 120) → (640, 600) → (1280, 600)
+    /// </summary>
+    private static MapDefinition CreateMapCorner()
+    {
+        return new MapDefinition
+        {
+            Id = "map_test_corner",
+            Name = "Test Map: Corner",
+            Width = 1280,
+            Height = 720,
+            PathBufferRadius = 48,
+            Path = new List<Point2D>
+            {
+                new Point2D(0, 120),
+                new Point2D(640, 120),
+                new Point2D(640, 600),
+                new Point2D(1280, 600)
+            }
+        };
+    }
+
+    /// <summary>
+    /// Тестовая карта с серпантинным (змеевидным) путём.
+    /// Путь: (0, 120) → (960, 120) → (960, 360) → (320, 360) → (320, 600) → (1280, 600)
+    /// </summary>
+    private static MapDefinition CreateMapSerpentine()
+    {
+        return new MapDefinition
+        {
+            Id = "map_test_serpentine",
+            Name = "Test Map: Serpentine",
+            Width = 1280,
+            Height = 720,
+            PathBufferRadius = 48,
+            Path = new List<Point2D>
+            {
+                new Point2D(0, 120),
+                new Point2D(960, 120),
+                new Point2D(960, 360),
+                new Point2D(320, 360),
+                new Point2D(320, 600),
+                new Point2D(1280, 600)
+            }
+        };
+    }
+}
+~~~
+
 ~~~src\Td.Core\Domain\Maps\IMapCatalog.cs
 public interface IMapCatalog
 {
@@ -1397,10 +2941,8 @@ public interface IPathGeometry
 ~~~
 
 ~~~src\Td.Core\Domain\Maps\IPlacementValidator.cs
-
-
 /// <summary>
-/// Валидатор размещения башен на карте. 
+/// Валидатор размещения башен на карте.
 /// Инкапсулирует правила коллизий с путем, границами карты и другими башнями.
 /// </summary>
 public interface IPlacementValidator
@@ -1408,19 +2950,69 @@ public interface IPlacementValidator
     /// <summary>
     /// Проверяет, можно ли разместить башню в указанной позиции.
     /// </summary>
-    /// <param name="map">Определение карты (содержит путь, буферную зону и границы).</param>
-    /// <param name="position">Координаты центра предполагаемой башни.</param>
-    /// <param name="towerType">Тип башни (резерв для будущих специфических правил, например, для летающих башен).</param>
-    /// <param name="existingTowers">Коллекция уже размещенных на карте башен.</param>
+    /// <param name="map">
+    /// Определение карты.
+    /// Должно содержать корректный путь минимум из двух точек,
+    /// а также размеры карты и <c>PathBufferRadius</c>.
+    /// </param>
+    /// <param name="position">
+    /// Координаты центра предполагаемой башни.
+    /// </param>
+    /// <param name="towerType">
+    /// Тип башни.
+    /// Используется для получения радиуса занимаемой области через <c>FootprintRadius</c>.
+    /// </param>
+    /// <param name="existingTowers">
+    /// Коллекция уже размещенных на карте башен.
+    /// </param>
     /// <returns>
-    /// true, если размещение валидно.
+    /// <c>true</c>, если размещение валидно; иначе <c>false</c>.
     /// <para>
-    /// Строгие правила валидации (Spec-first):
-    /// 1. Bounds Check: position.X in [0, map.Width], position.Y in [0, map.Height].
-    /// 2. Path Buffer Check: Евклидово расстояние от position до ближайшей точки на любом сегменте map.Path 
-    ///    должно быть строго >= map.PathBufferRadius.
-    /// 3. Tower Collision Check: Евклидово расстояние от position до центра любой башни из existingTowers 
-    ///    должно быть строго >= MechanicsLimits.MinTowerDistance.
+    /// Строгие правила валидации, соответствующие реализации <c>MapPlacementValidator</c>:
+    /// </para>
+    /// <para>
+    /// 1. Input Check:
+    /// <list type="bullet">
+    /// <item><description><c>map</c> не равен <c>null</c>.</description></item>
+    /// <item><description><c>towerType</c> не равен <c>null</c>.</description></item>
+    /// <item><description><c>existingTowers</c> не равен <c>null</c>.</description></item>
+    /// <item><description><c>map.Path</c> не равен <c>null</c> и содержит минимум 2 точки.</description></item>
+    /// <item><description><c>towerType.FootprintRadius</c> больше 0.</description></item>
+    /// </list>
+    /// При нарушении любого из этих условий метод возвращает <c>false</c>.
+    /// </para>
+    /// <para>
+    /// 2. Bounds Check:
+    /// позиция башни вместе с её <c>FootprintRadius</c> должна полностью находиться внутри карты.
+    /// <code>
+    /// position.X &gt;= towerRadius
+    /// position.X &lt;= map.Width - towerRadius
+    /// position.Y &gt;= towerRadius
+    /// position.Y &lt;= map.Height - towerRadius
+    /// </code>
+    /// где <c>towerRadius = towerType.FootprintRadius</c>.
+    /// </para>
+    /// <para>
+    /// 3. Path Buffer Check:
+    /// евклидово расстояние от <c>position</c> до ближайшей точки пути
+    /// должно быть не меньше суммы буферной зоны пути и радиуса башни.
+    /// <code>
+    /// distanceToPath &gt;= map.PathBufferRadius + towerRadius
+    /// </code>
+    /// </para>
+    /// <para>
+    /// 4. Tower Collision Check:
+    /// евклидово расстояние от <c>position</c> до центра любой уже размещенной башни
+    /// должно быть не меньше суммы радиуса новой башни и радиуса существующей башни.
+    /// <code>
+    /// distance &gt;= towerRadius + existingTowerRadius
+    /// </code>
+    /// где <c>existingTowerRadius = existingTower.Type.FootprintRadius</c>.
+    /// </para>
+    /// <para>
+    /// Примечание:
+    /// существующие башни, у которых сама башня или её тип равны <c>null</c>,
+    /// пропускаются при проверке коллизий.
     /// </para>
     /// </returns>
     bool CanPlaceTower(
@@ -1739,146 +3331,6 @@ public enum MonsterClass
 }
 ~~~
 
-~~~src\Td.Core\Domain\Monsters\MonsterContent.cs
-using System.Collections.Generic;
-
-public static class MonsterContent
-{
-    public static IReadOnlyList<MonsterType> All { get; } = new List<MonsterType>
-    {
-        new MonsterType
-        {
-            Id = "monster_t1_grunt",
-            Name = "Grunt",
-            Class = MonsterClass.Normal,
-            MaxHp = 70,
-            Speed = 60.0,
-            Armor = 0,
-            GoldReward = 8,
-            SlowResistance = 0.0,
-            Tier = 1
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t1_scout",
-            Name = "Scout",
-            Class = MonsterClass.Fast,
-            MaxHp = 45,
-            Speed = 95.0,
-            Armor = 0,
-            GoldReward = 9,
-            SlowResistance = 0.0,
-            Tier = 1
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t2_runner",
-            Name = "Runner",
-            Class = MonsterClass.Fast,
-            MaxHp = 80,
-            Speed = 105.0,
-            Armor = 0,
-            GoldReward = 12,
-            SlowResistance = 0.0,
-            Tier = 2
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t2_brute",
-            Name = "Brute",
-            Class = MonsterClass.Tank,
-            MaxHp = 240,
-            Speed = 42.0,
-            Armor = 3,
-            GoldReward = 16,
-            SlowResistance = 0.05,
-            Tier = 2
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t3_armored",
-            Name = "Armored",
-            Class = MonsterClass.Normal,
-            MaxHp = 200,
-            Speed = 55.0,
-            Armor = 5,
-            GoldReward = 18,
-            SlowResistance = 0.05,
-            Tier = 3
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t3_flyer",
-            Name = "Flyer",
-            Class = MonsterClass.Flying,
-            MaxHp = 120,
-            Speed = 82.0,
-            Armor = 1,
-            GoldReward = 15,
-            SlowResistance = 0.0,
-            Tier = 3
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t4_guard",
-            Name = "Guard",
-            Class = MonsterClass.Tank,
-            MaxHp = 460,
-            Speed = 36.0,
-            Armor = 8,
-            GoldReward = 25,
-            SlowResistance = 0.10,
-            Tier = 4
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t4_skyflyer",
-            Name = "Skyflyer",
-            Class = MonsterClass.Flying,
-            MaxHp = 170,
-            Speed = 112.0,
-            Armor = 2,
-            GoldReward = 22,
-            SlowResistance = 0.10,
-            Tier = 4
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t5_juggernaut",
-            Name = "Juggernaut",
-            Class = MonsterClass.Tank,
-            MaxHp = 850,
-            Speed = 30.0,
-            Armor = 12,
-            GoldReward = 40,
-            SlowResistance = 0.20,
-            Tier = 5
-        },
-
-        new MonsterType
-        {
-            Id = "monster_t5_alpha",
-            Name = "Alpha",
-            Class = MonsterClass.Normal,
-            MaxHp = 380,
-            Speed = 66.0,
-            Armor = 6,
-            GoldReward = 32,
-            SlowResistance = 0.15,
-            Tier = 5
-        }
-    };
-}
-~~~
-
 ~~~src\Td.Core\Domain\Monsters\MonsterState.cs
 
 
@@ -2024,212 +3476,6 @@ public sealed record SlowStatus
 public interface ISellRefundPolicy
 {
     int GetRefund(TowerState tower);
-}
-~~~
-
-~~~src\Td.Core\Domain\Towers\TowerContent.cs
-using System.Collections.Generic;
-
-public static class TowerContent
-{
-    public static IReadOnlyList<TowerType> All { get; } = new List<TowerType>
-    {
-        new TowerType
-        {
-            Id = "tower_gun",
-            Name = "Gun Tower",
-            Kind = TowerKind.Normal,
-            BaseCost = 100,
-            Levels = new List<TowerLevelDefinition>
-            {
-                new TowerLevelDefinition
-                {
-                    Level = 1,
-                    UpgradeCost = 0,
-                    Damage = 12,
-                    Range = 120.0,
-                    CooldownSeconds = 0.60,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 2,
-                    UpgradeCost = 80,
-                    Damage = 20,
-                    Range = 130.0,
-                    CooldownSeconds = 0.55,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 3,
-                    UpgradeCost = 130,
-                    Damage = 32,
-                    Range = 140.0,
-                    CooldownSeconds = 0.50,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                }
-            }
-        },
-
-        new TowerType
-        {
-            Id = "tower_frost",
-            Name = "Frost Tower",
-            Kind = TowerKind.Slow,
-            BaseCost = 120,
-            Levels = new List<TowerLevelDefinition>
-            {
-                new TowerLevelDefinition
-                {
-                    Level = 1,
-                    UpgradeCost = 0,
-                    Damage = 6,
-                    Range = 110.0,
-                    CooldownSeconds = 0.80,
-                    SlowPercent = 0.25,
-                    SlowDurationSeconds = 1.5,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 2,
-                    UpgradeCost = 90,
-                    Damage = 9,
-                    Range = 120.0,
-                    CooldownSeconds = 0.75,
-                    SlowPercent = 0.35,
-                    SlowDurationSeconds = 2.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 3,
-                    UpgradeCost = 140,
-                    Damage = 12,
-                    Range = 130.0,
-                    CooldownSeconds = 0.70,
-                    SlowPercent = 0.45,
-                    SlowDurationSeconds = 2.5,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.0
-                }
-            }
-        },
-
-        new TowerType
-        {
-            Id = "tower_cannon",
-            Name = "Cannon Tower",
-            Kind = TowerKind.Area,
-            BaseCost = 160,
-            Levels = new List<TowerLevelDefinition>
-            {
-                new TowerLevelDefinition
-                {
-                    Level = 1,
-                    UpgradeCost = 0,
-                    Damage = 18,
-                    Range = 130.0,
-                    CooldownSeconds = 1.40,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 45.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 2,
-                    UpgradeCost = 120,
-                    Damage = 28,
-                    Range = 140.0,
-                    CooldownSeconds = 1.30,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 55.0,
-                    ArmorIgnorePercent = 0.0
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 3,
-                    UpgradeCost = 180,
-                    Damage = 40,
-                    Range = 150.0,
-                    CooldownSeconds = 1.20,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 65.0,
-                    ArmorIgnorePercent = 0.0
-                }
-            }
-        },
-
-        new TowerType
-        {
-            Id = "tower_sniper",
-            Name = "Sniper Tower",
-            Kind = TowerKind.ArmorPiercing,
-            BaseCost = 180,
-            Levels = new List<TowerLevelDefinition>
-            {
-                new TowerLevelDefinition
-                {
-                    Level = 1,
-                    UpgradeCost = 0,
-                    Damage = 25,
-                    Range = 170.0,
-                    CooldownSeconds = 1.60,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.45
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 2,
-                    UpgradeCost = 140,
-                    Damage = 40,
-                    Range = 190.0,
-                    CooldownSeconds = 1.50,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.65
-                },
-
-                new TowerLevelDefinition
-                {
-                    Level = 3,
-                    UpgradeCost = 200,
-                    Damage = 60,
-                    Range = 210.0,
-                    CooldownSeconds = 1.40,
-                    SlowPercent = 0.0,
-                    SlowDurationSeconds = 0.0,
-                    SplashRadius = 0.0,
-                    ArmorIgnorePercent = 0.85
-                }
-            }
-        }
-    };
 }
 ~~~
 
@@ -3214,6 +4460,200 @@ public partial class MainWindow : Window
   </ItemGroup>
 
 </Project>
+~~~
+
+~~~tests\Td.Core.Tests\Domain\Maps\DefaultMapCatalogTests.cs
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// Тесты каталога тестовых карт по умолчанию (<see cref="DefaultMapCatalog"/>).
+/// Проверяют:
+/// - количество карт;
+/// - уникальность и непустоту идентификаторов;
+/// - непустоту названий;
+/// - корректность размеров;
+/// - корректность путей;
+/// - корректность буферной зоны пути;
+/// - поведение GetMap для известных и неизвестных Id.
+/// </summary>
+public sealed class DefaultMapCatalogTests
+{
+    private readonly DefaultMapCatalog _catalog = new();
+
+    // ------------------------------------------------------------------
+    // Количество карт
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_ReturnsExactlyThreeMaps()
+    {
+        IReadOnlyList<MapDefinition> maps = _catalog.GetMaps();
+
+        Assert.Equal(3, maps.Count);
+    }
+
+    [Fact]
+    public void CreateDefaultMaps_ReturnsExactlyThreeMaps()
+    {
+        IReadOnlyList<MapDefinition> maps = DefaultMapCatalog.CreateDefaultMaps();
+
+        Assert.Equal(3, maps.Count);
+    }
+
+    // ------------------------------------------------------------------
+    // Уникальность и непустота Id
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_AllIdsAreUnique()
+    {
+        IReadOnlyList<MapDefinition> maps = _catalog.GetMaps();
+        List<string> ids = maps.Select(m => m.Id).ToList();
+
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
+    public void GetMaps_AllIdsAreNonEmpty()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            Assert.False(string.IsNullOrWhiteSpace(map.Id));
+        }
+    }
+
+    [Fact]
+    public void GetMaps_ContainsExpectedMapIds()
+    {
+        List<string> ids = _catalog.GetMaps().Select(m => m.Id).ToList();
+
+        Assert.Contains("map_test_straight", ids);
+        Assert.Contains("map_test_corner", ids);
+        Assert.Contains("map_test_serpentine", ids);
+    }
+
+    // ------------------------------------------------------------------
+    // Непустота Name
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_AllNamesAreNonEmpty()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            Assert.False(string.IsNullOrWhiteSpace(map.Name));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Размеры карты
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_AllDimensionsArePositive()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            Assert.True(map.Width > 0, $"Map '{map.Id}' must have positive Width.");
+            Assert.True(map.Height > 0, $"Map '{map.Id}' must have positive Height.");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Путь
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_AllPathsHaveAtLeastTwoPoints()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            Assert.NotNull(map.Path);
+            Assert.True(
+                map.Path.Count >= 2,
+                $"Map '{map.Id}' must have a path with at least 2 points.");
+        }
+    }
+
+    [Fact]
+    public void GetMaps_AllPathPointsAreWithinMapBounds()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            foreach (Point2D point in map.Path)
+            {
+                Assert.InRange(point.X, 0, map.Width);
+                Assert.InRange(point.Y, 0, map.Height);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Буферная зона пути
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_AllPathBufferRadiiAreNonNegative()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            Assert.True(
+                map.PathBufferRadius >= 0,
+                $"Map '{map.Id}' must have non-negative PathBufferRadius.");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // GetMap
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMap_ReturnsMapForKnownId()
+    {
+        foreach (MapDefinition map in _catalog.GetMaps())
+        {
+            MapDefinition? found = _catalog.GetMap(map.Id);
+
+            Assert.NotNull(found);
+            Assert.Equal(map.Id, found.Id);
+        }
+    }
+
+    [Fact]
+    public void GetMap_ReturnsNullForUnknownId()
+    {
+        MapDefinition? found = _catalog.GetMap("unknown_map_id");
+
+        Assert.Null(found);
+    }
+
+    // ------------------------------------------------------------------
+    // Консистентность
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetMaps_ReturnsSameInstanceOnMultipleCalls()
+    {
+        IReadOnlyList<MapDefinition> first = _catalog.GetMaps();
+        IReadOnlyList<MapDefinition> second = _catalog.GetMaps();
+
+        Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void GetMaps_MatchesCreateDefaultMapsById()
+    {
+        IReadOnlyList<MapDefinition> catalogMaps = _catalog.GetMaps();
+        IReadOnlyList<MapDefinition> factoryMaps = DefaultMapCatalog.CreateDefaultMaps();
+
+        Assert.Equal(factoryMaps.Count, catalogMaps.Count);
+        for (int i = 0; i < catalogMaps.Count; i++)
+        {
+            Assert.Equal(factoryMaps[i].Id, catalogMaps[i].Id);
+        }
+    }
+}
 ~~~
 
 ~~~tests\Td.Core.Tests\Domain\Maps\PathGeometryTests.cs
