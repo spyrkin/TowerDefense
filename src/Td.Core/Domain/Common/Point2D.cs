@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 
+namespace Td.Core.Domain.Common;
 
 /// <summary>
 /// Точка в логических координатах игрового поля.
@@ -21,7 +22,6 @@ public readonly record struct Point2D(double X, double Y)
     {
         double dx = X - other.X;
         double dy = Y - other.Y;
-
         return Math.Sqrt(dx * dx + dy * dy);
     }
 
@@ -33,7 +33,6 @@ public readonly record struct Point2D(double X, double Y)
     {
         double dx = X - other.X;
         double dy = Y - other.Y;
-
         return dx * dx + dy * dy;
     }
 

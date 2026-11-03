@@ -1,3 +1,5 @@
+namespace Td.Core.Domain.Common;
+
 public enum GameSpeed
 {
     X1 = 1,
