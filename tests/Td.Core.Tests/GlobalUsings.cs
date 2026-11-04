@@ -12,8 +12,8 @@
 //
 // Каждое пространство имён добавляется сюда поэтапно:
 //
-// R13  global using Td.Core.Domain.Common;
-// R14  global using Td.Core.Domain.Game;
+// R13  global using Td.Core.Domain.Common;   — DONE
+// R14  global using Td.Core.Domain.Game;     — DONE
 // R15  global using Td.Core.Domain.Maps;
 // R16  global using Td.Core.Domain.Monsters;
 // R17  global using Td.Core.Domain.Towers;
@@ -28,3 +28,4 @@
 // ---------------------------------------------------------------------------
 
 global using Td.Core.Domain.Common;
+global using Td.Core.Domain.Game;
