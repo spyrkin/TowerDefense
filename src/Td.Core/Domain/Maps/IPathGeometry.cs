@@ -1,3 +1,5 @@
+namespace Td.Core.Domain.Maps;
+
 public interface IPathGeometry
 {
     double GetLength(IReadOnlyList<Point2D> path);

@@ -1,3 +1,5 @@
+namespace Td.Core.Domain.Maps;
+
 public sealed class StaticMapCatalog : IMapCatalog
 {
     private readonly IReadOnlyList<MapDefinition> _maps;

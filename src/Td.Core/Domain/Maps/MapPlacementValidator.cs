@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-
-
-
+namespace Td.Core.Domain.Maps;
 
 public sealed class MapPlacementValidator : IPlacementValidator
 {
@@ -82,7 +78,6 @@ public sealed class MapPlacementValidator : IPlacementValidator
         double towerRadius)
     {
         double distanceToPath = _pathGeometry.GetDistanceToPath(map.Path, position);
-
         double requiredDistance = map.PathBufferRadius + towerRadius;
 
         return distanceToPath >= requiredDistance;
@@ -106,9 +101,7 @@ public sealed class MapPlacementValidator : IPlacementValidator
             }
 
             double otherRadius = tower.Type.FootprintRadius;
-
             double requiredDistance = towerRadius + otherRadius;
-
             double distanceSquared = position.DistanceSquaredTo(tower.Position);
 
             if (distanceSquared < requiredDistance * requiredDistance)

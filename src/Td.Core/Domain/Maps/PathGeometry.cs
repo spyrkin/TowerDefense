@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+namespace Td.Core.Domain.Maps;
 
 /// <summary>
 /// Базовая реализация геометрии пути на основе ломаной линии.
@@ -58,6 +57,7 @@ public sealed class PathGeometry : IPathGeometry
                 }
 
                 double t = remaining / segmentLength;
+
                 return new Point2D(
                     segmentStart.X + (segmentEnd.X - segmentStart.X) * t,
                     segmentStart.Y + (segmentEnd.Y - segmentStart.Y) * t);
@@ -88,6 +88,7 @@ public sealed class PathGeometry : IPathGeometry
         for (int i = 1; i < path.Count; i++)
         {
             double distance = DistancePointToSegment(point, path[i - 1], path[i]);
+
             if (distance < minDistance)
             {
                 minDistance = distance;
@@ -104,10 +105,8 @@ public sealed class PathGeometry : IPathGeometry
     {
         double vx = segmentEnd.X - segmentStart.X;
         double vy = segmentEnd.Y - segmentStart.Y;
-
         double wx = point.X - segmentStart.X;
         double wy = point.Y - segmentStart.Y;
-
         double lengthSquared = vx * vx + vy * vy;
 
         if (lengthSquared == 0.0)
