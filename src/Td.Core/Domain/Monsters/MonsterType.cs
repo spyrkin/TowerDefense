@@ -1,3 +1,5 @@
+namespace Td.Core.Domain.Monsters;
+
 public sealed record MonsterType
 {
     public required string Id { get; init; }

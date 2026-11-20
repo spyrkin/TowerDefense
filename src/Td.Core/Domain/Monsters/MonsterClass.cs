@@ -1,3 +1,4 @@
+namespace Td.Core.Domain.Monsters;
 
 public enum MonsterClass
 {
